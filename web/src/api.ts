@@ -54,6 +54,29 @@ export interface Credential {
   issued_at: string;
 }
 
+export interface SchemaSummary {
+  said: string;
+  title: string;
+  credentialType: string;
+  source: string;
+  fields: string[];
+  oobi: string;
+  createdAt: string;
+}
+
+export interface CatalogItem {
+  said: string;
+  title: string;
+  credentialType: string;
+  fields: string[];
+  imported: boolean;
+}
+
+export interface SchemaField {
+  name: string;
+  type: "string" | "number" | "integer" | "boolean" | "date-time";
+}
+
 export const api = {
   login: (username: string, password: string) =>
     request<{ token: string; user: User }>("/auth/login", {
@@ -96,4 +119,28 @@ export const api = {
       "/credentials/issue",
       { method: "POST" }
     ),
+
+  // ── Issuer: schemas ──────────────────────────────────
+  listSchemas: () => request<{ schemas: SchemaSummary[] }>("/schemas"),
+
+  schemaCatalog: () => request<{ catalog: CatalogItem[] }>("/schemas/catalog"),
+
+  buildSchema: (body: {
+    title: string;
+    description?: string;
+    fields: SchemaField[];
+  }) =>
+    request<{ schema: SchemaSummary; resolved: boolean; error?: string }>(
+      "/schemas",
+      { method: "POST", body: JSON.stringify(body) }
+    ),
+
+  importSchema: (said: string) =>
+    request<{ schema: SchemaSummary; resolved: boolean; error?: string }>(
+      "/schemas/import",
+      { method: "POST", body: JSON.stringify({ said }) }
+    ),
+
+  deleteSchema: (said: string) =>
+    request<{ success: boolean }>(`/schemas/${said}`, { method: "DELETE" }),
 };

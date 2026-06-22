@@ -22,6 +22,8 @@ veridian-poc/
 We build it in **chunks**. Done so far:
 
 - ✅ **Connection** — mutual OOBI introduction between the issuer and the wallet.
+- ✅ **Issuer / schemas** — an Issuer tab to build a custom ACDC schema (or
+  import a bundled/vLEI one), saidify it, host it, and resolve it into KERIA.
 - ⬜ **Issuance** — issue an ACDC credential and IPEX-grant it to the wallet (next).
 
 ---
@@ -154,16 +156,43 @@ The relevant server code lives in `server/src/signify/` (`getClientOobi`,
 
 ---
 
-## API surface (this chunk)
+## Defining what to issue (the Issuer tab)
+
+A credential is issued against a **schema**. The **Issuer** tab lets you:
+
+- **Build** one from a few fields → the backend generates an ACDC JSON Schema and
+  **saidifies** it (`Saider.saidify` — the `$id` is a digest of the content, a
+  self-addressing identifier, *not* a key signature), then hosts and resolves it.
+- **Import** a bundled/vLEI schema (Foundation Employee, QVI, Legal Entity…)
+  verbatim, preserving its SAID.
+
+The server **hosts** every stored schema at unauthenticated `GET /oobi/:said` and
+resolves it into KERIA. That OOBI only needs to be reachable by **KERIA** (not the
+wallet), so it uses `SCHEMA_HOST` — `http://server:4000` in full-docker,
+`http://host.docker.internal:4000` in host-dev. No ngrok needed for schemas.
+
+Saidification is in `server/src/schema/saidify.ts` (verified to reproduce
+keripy's SAIDs exactly).
+
+---
+
+## API surface
 
 | Method | Path                  | Auth | Description                          |
 | ------ | --------------------- | ---- | ----------------------------------- |
 | POST   | `/auth/login`         | —    | Mock login → JWT                    |
 | GET    | `/auth/me`            | JWT  | Current user                        |
 | GET    | `/health`             | —    | Server + KERIA agent status         |
+| GET    | `/oobi/:said`         | —    | Hosted schema OOBI (KERIA fetches this) |
 | GET    | `/connection/oobi`    | JWT  | Issuer OOBI + AID (for the QR)      |
 | GET    | `/connection`         | JWT  | Connection state, validated vs the live agent (flags `stale`) |
 | POST   | `/connection/resolve` | JWT  | Resolve wallet OOBI → connect       |
+| DELETE | `/connection`         | JWT  | Disconnect / start over             |
+| GET    | `/schemas`            | JWT  | Schemas you've built/imported       |
+| GET    | `/schemas/catalog`    | JWT  | Bundled/vLEI schemas to import      |
+| POST   | `/schemas`            | JWT  | Build + saidify + host + resolve    |
+| POST   | `/schemas/import`     | JWT  | Import a catalog schema             |
+| DELETE | `/schemas/:said`      | JWT  | Remove a schema                     |
 
 ---
 

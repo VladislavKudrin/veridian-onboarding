@@ -190,6 +190,17 @@ class SignifyService {
     );
   }
 
+  /**
+   * Resolve a schema OOBI we host ourselves (GET /oobi/:said) into KERIA, so the
+   * agent can validate credentials issued against it. Throws on failure.
+   */
+  async resolveSchemaSaid(said: string): Promise<void> {
+    const url = `${config.schema.host}/oobi/${said}`;
+    const op = await this.client.oobis().resolve(url);
+    await waitOperation(this.client, op);
+    console.log(`[signify] resolved schema OOBI: ${url}`);
+  }
+
   /** The platform agent's OOBI — shown to the user's wallet as a QR to scan. */
   async getClientOobi(): Promise<string> {
     const oobi = await this.client

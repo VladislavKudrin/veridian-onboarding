@@ -24,6 +24,10 @@ export const config = {
   },
 
   schema: {
+    // Base URL where THIS server hosts schema OOBIs (GET /oobi/:said). Must be
+    // reachable by the KERIA container: `http://server:4000` in full-docker,
+    // `http://host.docker.internal:4000` when the server runs on the host.
+    host: process.env.SCHEMA_HOST || "http://host.docker.internal:4000",
     said:
       process.env.EXPECTED_SCHEMA_SAID ||
       "EL9oOWU_7zQn_rD--Xsgi3giCWnFDaNvFMUGTOZx1ARO",

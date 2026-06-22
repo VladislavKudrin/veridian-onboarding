@@ -101,6 +101,8 @@ services:
       - KERIA_BOOT_URL=http://keria:3903
       - AGENT_NAME=VeridianPoc
       - DB_PATH=/app/data/veridian-poc.sqlite
+      # KERIA fetches hosted schema OOBIs from the server over the compose network.
+      - SCHEMA_HOST=http://server:4000
       # Fixed 21-char passcode -> stable issuer AID/registry/connection across
       # restarts (paired with the persistent keria-data volume).
       - SIGNIFY_BRAN=${SIGNIFY_BRAN:-veridianPocStableSeed}

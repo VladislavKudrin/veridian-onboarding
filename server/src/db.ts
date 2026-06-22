@@ -52,6 +52,15 @@ db.exec(`
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS schemas (
+    said            TEXT PRIMARY KEY,
+    title           TEXT NOT NULL,
+    credential_type TEXT NOT NULL,
+    definition      TEXT NOT NULL,
+    source          TEXT NOT NULL DEFAULT 'builder',
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS credentials (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id       INTEGER NOT NULL REFERENCES users(id),
@@ -63,6 +72,44 @@ db.exec(`
     issued_at     TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
+
+export interface SchemaRow {
+  said: string;
+  title: string;
+  credential_type: string;
+  definition: string;
+  source: string;
+  created_at: string;
+}
+
+export function listSchemas(): SchemaRow[] {
+  return db
+    .prepare(`SELECT * FROM schemas ORDER BY created_at DESC`)
+    .all() as SchemaRow[];
+}
+
+export function getSchemaBySaid(said: string): SchemaRow | undefined {
+  return db.prepare(`SELECT * FROM schemas WHERE said = ?`).get(said) as
+    | SchemaRow
+    | undefined;
+}
+
+export function upsertSchema(
+  row: Omit<SchemaRow, "created_at">
+): SchemaRow {
+  db.prepare(
+    `INSERT INTO schemas (said, title, credential_type, definition, source)
+     VALUES (@said, @title, @credential_type, @definition, @source)
+     ON CONFLICT(said) DO UPDATE SET
+       title=@title, credential_type=@credential_type,
+       definition=@definition, source=@source`
+  ).run(row);
+  return getSchemaBySaid(row.said)!;
+}
+
+export function deleteSchema(said: string): void {
+  db.prepare(`DELETE FROM schemas WHERE said = ?`).run(said);
+}
 
 /** Seed the single mock web2 account if it does not exist. */
 export function seedAdmin(): UserRow {

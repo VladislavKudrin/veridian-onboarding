@@ -97,7 +97,8 @@ code {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   background: var(--panel-2);
   border: 1px solid var(--border);
@@ -109,7 +110,8 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   outline: none;
   border-color: var(--primary);
 }
@@ -213,6 +215,132 @@ textarea:focus {
   display: flex;
   align-items: center;
   gap: 14px;
+}
+
+/* ── Tabs ──────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.tab {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: var(--primary);
+  color: #0b0e14;
+}
+
+/* ── Issuer ────────────────────────────── */
+.section-title {
+  margin: 0 0 14px;
+  font-size: 16px;
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fields-label {
+  font-size: 13px;
+}
+
+.field-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.field-row input {
+  flex: 1;
+}
+
+.field-row select {
+  flex: 0 0 130px;
+  width: 130px;
+}
+
+.field-row .icon-btn {
+  flex: 0 0 auto;
+}
+
+.schema-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.schema-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.schema-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.schema-title {
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.schema-fields {
+  font-size: 12px;
+  margin: 2px 0 4px;
+}
+
+.schema-said {
+  font-size: 11px;
+  word-break: break-all;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+}
+
+.tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.tag.builder {
+  color: var(--primary);
+  border-color: rgba(108, 140, 255, 0.4);
+  background: rgba(108, 140, 255, 0.1);
+}
+
+.tag.catalog {
+  color: var(--ok);
+  border-color: rgba(62, 207, 142, 0.4);
+  background: rgba(62, 207, 142, 0.1);
 }
 
 .dash {
