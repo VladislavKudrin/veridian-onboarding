@@ -1,5 +1,6 @@
 import { Response, Router } from "express";
 import {
+  deleteConnectionsForUser,
   getLatestConnection,
   insertConnection,
 } from "../db";
@@ -115,4 +116,14 @@ connectionRouter.post("/resolve", async (req: AuthedRequest, res) => {
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
+});
+
+/** Disconnect -> forget the contact (best-effort) and drop the saved connection. */
+connectionRouter.delete("/", async (req: AuthedRequest, res) => {
+  const connection = getLatestConnection(req.user!.id);
+  if (connection && signifyService.isAvailable()) {
+    await signifyService.removeContact(connection.user_aid).catch(() => {});
+  }
+  deleteConnectionsForUser(req.user!.id);
+  res.json({ success: true });
 });

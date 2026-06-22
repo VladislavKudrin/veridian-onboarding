@@ -38,6 +38,19 @@ export function Dashboard({
     setStaleReason(null);
   }
 
+  const [disconnecting, setDisconnecting] = useState(false);
+  async function handleDisconnect() {
+    setDisconnecting(true);
+    try {
+      await api.disconnect();
+      setConnection(null);
+      setConnected(false);
+      setStaleReason(null);
+    } finally {
+      setDisconnecting(false);
+    }
+  }
+
   return (
     <div className="page">
       <header className="topbar">
@@ -95,6 +108,13 @@ export function Dashboard({
                 <span className="kv-k">Your wallet AID</span>
                 <code className="kv-v">{connection!.user_aid}</code>
               </div>
+              <button
+                className="btn ghost small"
+                onClick={handleDisconnect}
+                disabled={disconnecting}
+              >
+                {disconnecting ? "Disconnecting…" : "Disconnect & start over"}
+              </button>
             </div>
           ) : (
             <>

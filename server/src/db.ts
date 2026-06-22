@@ -112,6 +112,11 @@ export function insertConnection(
     .get(info.lastInsertRowid) as ConnectionRow;
 }
 
+/** Forget all connections for a user (used by the disconnect / reset flow). */
+export function deleteConnectionsForUser(userId: number): void {
+  db.prepare(`DELETE FROM connections WHERE user_id = ?`).run(userId);
+}
+
 export function getLatestCredential(
   userId: number
 ): CredentialRow | undefined {

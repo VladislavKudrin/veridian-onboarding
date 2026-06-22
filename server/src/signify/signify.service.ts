@@ -213,6 +213,15 @@ class SignifyService {
     }
   }
 
+  /** Forget a contact so the connection can be re-established from scratch. */
+  async removeContact(aid: string): Promise<void> {
+    try {
+      await this.client.contacts().delete(aid);
+    } catch {
+      /* already gone — ignore */
+    }
+  }
+
   /** Resolve the user's wallet OOBI (their side of the connection). */
   async resolveUserOobi(oobi: string): Promise<{ userAid: string }> {
     if (!oobi.includes("/oobi/")) {

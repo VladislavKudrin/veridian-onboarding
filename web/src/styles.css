@@ -692,3 +692,85 @@ textarea:focus {
 .explain-body strong {
   color: var(--text);
 }
+
+/* ── CodePeek (view the code) ──────────── */
+.codepeek {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.codepeek.open {
+  border-color: rgba(62, 207, 142, 0.35);
+}
+
+.codepeek-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 11px 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.codepeek-icon {
+  font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  color: var(--ok);
+  font-size: 13px;
+}
+
+.codepeek-file {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  background: transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50%;
+}
+
+.codepeek-chevron {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.codepeek-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--panel-2);
+}
+
+.codepeek-head code {
+  background: transparent;
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.codepeek-pre {
+  margin: 0;
+  padding: 14px;
+  overflow-x: auto;
+  background: #0b0e14;
+  font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.codepeek-pre code {
+  background: transparent;
+  padding: 0;
+  color: #cdd6e4;
+  white-space: pre;
+}

@@ -83,6 +83,9 @@ export const api = {
       { method: "POST", body: JSON.stringify({ oobi }) }
     ),
 
+  disconnect: () =>
+    request<{ success: boolean }>("/connection", { method: "DELETE" }),
+
   credentialStatus: () =>
     request<{ active: boolean; credential: Credential | null }>(
       "/credentials/status"

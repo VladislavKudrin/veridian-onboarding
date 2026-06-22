@@ -1,8 +1,25 @@
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
+import { CodePeek } from "../components/CodePeek";
 import { Explain } from "../components/Explain";
 import { QrScanner } from "../components/QrScanner";
 import { api, Connection } from "../api";
+
+const ISSUER_OOBI_CODE = `// The platform agent's OOBI — shown to the wallet as a QR to scan.
+async getClientOobi(): Promise<string> {
+  const oobi = await this.client
+    .oobis()
+    .get(config.keria.agentName, "agent");
+  return \`\${oobi.oobis[0]}?name=Veridian%20POC\`;
+}`;
+
+const RESOLVE_OOBI_CODE = `// Resolve the wallet's OOBI -> the agent now "knows" the wallet's AID.
+async resolveUserOobi(oobi: string): Promise<{ userAid: string }> {
+  const { userAid } = getAidFromOobi(oobi);
+  const op = await this.client.oobis().resolve(oobi);
+  await waitOperation(this.client, op); // wait for the long-running op
+  return { userAid };
+}`;
 
 /**
  * The guided connection experience.
@@ -130,6 +147,12 @@ export function ConnectionGuide({
             issuer signs — including the credential it's about to send you.
           </p>
         </Explain>
+
+        <CodePeek
+          file="server/src/signify/signify.service.ts"
+          symbol="getClientOobi()"
+          code={ISSUER_OOBI_CODE}
+        />
       </div>
 
       {/* ── Half 2: wallet → issuer ───────────────────────── */}
@@ -203,6 +226,12 @@ export function ConnectionGuide({
             issuer always knows where your credential should go.
           </p>
         </Explain>
+
+        <CodePeek
+          file="server/src/signify/signify.service.ts"
+          symbol="resolveUserOobi()"
+          code={RESOLVE_OOBI_CODE}
+        />
       </div>
     </div>
   );
