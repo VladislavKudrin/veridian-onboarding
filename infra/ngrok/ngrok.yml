@@ -1,0 +1,4 @@
+version: "2"
+# Bind the agent API on all interfaces so the keria container can read the
+# generated public URL (only needed in the random/no-domain mode).
+web_addr: 0.0.0.0:4040

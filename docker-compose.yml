@@ -1,0 +1,128 @@
+# Self-contained Veridian POC — the WHOLE stack in one command:
+#
+#   docker compose up --build
+#
+# brings up the KERI infrastructure AND the app. No external repos, no local
+# Node required.
+#
+#   keria      — the agent that hosts cloud identifiers and speaks KERI/IPEX
+#   witnesses  — the 6 demo witnesses that receipt (notarise) key events
+#   server     — the Express + signify-ts backend (the platform agent)        :4000
+#   web        — the guided React UI, served by nginx (proxies /api -> server) :5173
+#
+# The credential schema server is added in the "issuance" chunk; the
+# connection step only needs an agent + witnesses.
+#
+# A wallet that scans an OOBI must be able to REACH KERIA. By default this stack
+# opens an ngrok tunnel automatically (see the `ngrok` service + .env), so the
+# OOBIs carry a public URL with no domain of your own. Set KERIA_PUBLIC_URL in
+# .env to your own domain to host it there instead.
+
+services:
+  keria:
+    container_name: veridian-poc-keria
+    image: ghcr.io/cardano-foundation/cf-identity-wallet/cf-idw-keria:1.2.0-fix-VT20-2191-Un-ordered-exchange-queries-pagination-is-not-reliable-re-orders-a-a1cbe1f
+    restart: unless-stopped
+    working_dir: /keria
+    environment:
+      - KERI_AGENT_CORS=true
+      - ALLOW_INTRODUCTIONS=true
+      - REMOTE_SIGNING=true
+      # Public URL KERIA advertises in OOBIs: a domain, "ngrok", or "local".
+      - KERIA_PUBLIC_URL=${KERIA_PUBLIC_URL:-local}
+    volumes:
+      - keria-data:/usr/local/var/keri
+      # Template config in; the init script writes the resolved one to KERIA's
+      # config dir before launch.
+      - ./infra/keria-config/config.json:/config/config.json:ro
+      - ./infra/keria/entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    ports:
+      - "3901:3901" # admin / connect
+      - "3902:3902" # KERI protocol (curls)
+      - "3903:3903" # boot
+    depends_on:
+      - witnesses
+
+  # Public tunnel so a wallet anywhere can resolve OOBIs without a domain.
+  # Enabled by the "tunnel" compose profile (COMPOSE_PROFILES=tunnel in .env).
+  ngrok:
+    container_name: veridian-poc-ngrok
+    image: ngrok/ngrok:latest
+    restart: unless-stopped
+    profiles: ["tunnel"]
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN:-}
+      - NGROK_DOMAIN=${NGROK_DOMAIN:-}
+    # If NGROK_DOMAIN is set, claim that reserved (stable) domain; otherwise
+    # open a random free tunnel. ($$ defers expansion to the container shell.)
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - 'ngrok http $${NGROK_DOMAIN:+--url=https://$$NGROK_DOMAIN} keria:3902 --config /etc/ngrok.yml'
+    volumes:
+      - ./infra/ngrok/ngrok.yml:/etc/ngrok.yml:ro
+    ports:
+      - "4040:4040" # ngrok inspection API / UI
+
+  witnesses:
+    container_name: veridian-poc-witnesses
+    image: weboftrust/keri:1.1.26
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONIOENCODING=UTF-8
+    entrypoint:
+      - kli
+    command:
+      - witness
+      - demo
+    volumes:
+      - ./infra/keria-config/witnesses:/keripy/scripts/keri/cf/main
+    ports:
+      - "5642:5642"
+      - "5643:5643"
+      - "5644:5644"
+      - "5645:5645"
+      - "5646:5646"
+      - "5647:5647"
+
+  server:
+    container_name: veridian-poc-server
+    build: ./server
+    restart: unless-stopped
+    environment:
+      - PORT=4000
+      - CLIENT_URL=http://localhost:5173
+      - JWT_SECRET=change-me-in-prod
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin
+      - KERIA_ENABLED=true
+      - KERIA_CONNECT_URL=http://keria:3901
+      - KERIA_BOOT_URL=http://keria:3903
+      - AGENT_NAME=VeridianPoc
+      - DB_PATH=/app/data/veridian-poc.sqlite
+      # Fixed 21-char passcode -> stable issuer AID/registry/connection across
+      # restarts (paired with the persistent keria-data volume).
+      - SIGNIFY_BRAN=${SIGNIFY_BRAN:-veridianPocStableSeed}
+      # SCHEMA_OOBI_URL is intentionally empty for the connection chunk — the
+      # schema server arrives with issuance.
+      - SCHEMA_OOBI_URL=
+    volumes:
+      - server-data:/app/data
+    ports:
+      - "4000:4000"
+    depends_on:
+      - keria
+
+  web:
+    container_name: veridian-poc-web
+    build: ./web
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - server
+
+volumes:
+  keria-data:
+  server-data:
