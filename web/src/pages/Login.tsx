@@ -2,8 +2,11 @@ import { FormEvent, useState } from "react";
 import { api, setToken, User } from "../api";
 
 export function Login({ onLogin }: { onLogin: (user: User) => void }) {
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin");
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -12,7 +15,10 @@ export function Login({ onLogin }: { onLogin: (user: User) => void }) {
     setError("");
     setLoading(true);
     try {
-      const { token, user } = await api.login(username, password);
+      const { token, user } =
+        mode === "login"
+          ? await api.login(username, password)
+          : await api.register({ username, password, displayName, email });
       setToken(token);
       onLogin(user);
     } catch (err) {
@@ -22,6 +28,8 @@ export function Login({ onLogin }: { onLogin: (user: User) => void }) {
     }
   }
 
+  const isRegister = mode === "register";
+
   return (
     <div className="centered">
       <div className="card login-card">
@@ -29,8 +37,9 @@ export function Login({ onLogin }: { onLogin: (user: User) => void }) {
           <div className="brand-mark">◇</div>
           <h1>Veridian Sandbox</h1>
           <p className="muted">
-            Sign in to connect your Veridian wallet and receive a verifiable
-            credential.
+            {isRegister
+              ? "Create an account to connect your wallet and request credentials."
+              : "Sign in to connect your wallet and request verifiable credentials."}
           </p>
         </div>
 
@@ -43,22 +52,84 @@ export function Login({ onLogin }: { onLogin: (user: User) => void }) {
               autoComplete="username"
             />
           </label>
+
+          {isRegister && (
+            <>
+              <label>
+                Full name
+                <input
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="e.g. Alice Smith"
+                />
+              </label>
+              <label>
+                Email <span className="muted">(optional)</span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                />
+              </label>
+            </>
+          )}
+
           <label>
             Password
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
+              autoComplete={isRegister ? "new-password" : "current-password"}
             />
           </label>
 
           {error && <div className="alert error">{error}</div>}
 
           <button className="btn primary" disabled={loading}>
-            {loading ? "Signing in…" : "Log In"}
+            {loading
+              ? isRegister
+                ? "Creating…"
+                : "Signing in…"
+              : isRegister
+                ? "Create account"
+                : "Log In"}
           </button>
-          <p className="hint muted">Demo account: admin / admin</p>
+
+          <p className="hint muted">
+            {isRegister ? (
+              <>
+                Already have an account?{" "}
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => {
+                    setMode("login");
+                    setError("");
+                  }}
+                >
+                  Sign in
+                </button>
+              </>
+            ) : (
+              <>
+                New here?{" "}
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => {
+                    setMode("register");
+                    setError("");
+                  }}
+                >
+                  Create an account
+                </button>
+                <br />
+                Issuer demo: <code>admin / admin</code>
+              </>
+            )}
+          </p>
         </form>
       </div>
     </div>

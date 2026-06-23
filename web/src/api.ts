@@ -31,10 +31,29 @@ async function request<T>(
   return data as T;
 }
 
+export type Role = "issuer" | "holder";
+
 export interface User {
   username: string;
   displayName: string;
   email: string;
+  role: Role;
+}
+
+export interface CredRequest {
+  id: number;
+  status: "pending" | "accepted" | "declined" | "revoked";
+  schemaSaid: string;
+  schemaTitle: string;
+  attributes: Record<string, string | number | boolean>;
+  credSaid: string | null;
+  reason: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+  // issuer-only enrichment:
+  holder?: { username: string; displayName: string; email: string };
+  connected?: boolean;
+  userAid?: string | null;
 }
 
 export interface Connection {
@@ -86,6 +105,17 @@ export const api = {
       body: JSON.stringify({ username, password }),
     }),
 
+  register: (body: {
+    username: string;
+    password: string;
+    displayName: string;
+    email: string;
+  }) =>
+    request<{ token: string; user: User }>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
   me: () => request<User>("/auth/me"),
 
   health: () =>
@@ -122,11 +152,30 @@ export const api = {
   listCredentials: () =>
     request<{ credentials: IssuedCredential[] }>("/credentials"),
 
-  issueCredential: (body: { said: string; attributes: Record<string, unknown> }) =>
-    request<{ success: boolean; credential: IssuedCredential }>(
-      "/credentials/issue",
-      { method: "POST", body: JSON.stringify(body) }
-    ),
+  // ── Credential requests (apply / approve) ────────────
+  listRequests: () => request<{ requests: CredRequest[] }>("/requests"),
+
+  createRequest: (body: { said: string; attributes: Record<string, unknown> }) =>
+    request<{ request: CredRequest }>("/requests", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  acceptRequest: (id: number) =>
+    request<{ request: CredRequest }>(`/requests/${id}/accept`, {
+      method: "POST",
+    }),
+
+  declineRequest: (id: number, reason: string) =>
+    request<{ request: CredRequest }>(`/requests/${id}/decline`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+
+  revokeRequest: (id: number) =>
+    request<{ request: CredRequest }>(`/requests/${id}/revoke`, {
+      method: "POST",
+    }),
 
   // ── Issuer: schemas ──────────────────────────────────
   listSchemas: () => request<{ schemas: SchemaSummary[] }>("/schemas"),

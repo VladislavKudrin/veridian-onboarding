@@ -1,23 +1,20 @@
 import { useEffect, useState } from "react";
-import { api, Connection, IssuedCredential, User } from "../api";
+import { api, Connection, User } from "../api";
 import { ConnectionGuide } from "./ConnectionGuide";
-import { CredentialStep } from "./CredentialStep";
 import { Prerequisites } from "./Prerequisites";
+import { RequestStep } from "./RequestStep";
 
 export function Dashboard({
   user,
   keriaReady,
-  onGoToIssuer,
 }: {
   user: User;
   keriaReady: boolean | null;
-  onGoToIssuer: () => void;
 }) {
   const [connection, setConnection] = useState<Connection | null>(null);
   const [connected, setConnected] = useState(false);
   const [staleReason, setStaleReason] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
-  const [credentials, setCredentials] = useState<IssuedCredential[]>([]);
 
   async function refresh() {
     const conn = await api.getConnection().catch(() => null);
@@ -28,14 +25,8 @@ export function Dashboard({
     }
   }
 
-  async function refreshCredentials() {
-    const r = await api.listCredentials().catch(() => null);
-    if (r) setCredentials(r.credentials);
-  }
-
   useEffect(() => {
     refresh();
-    refreshCredentials();
   }, []);
 
   function handleConnected(c: Connection) {
@@ -59,10 +50,10 @@ export function Dashboard({
   return (
     <>
       <div className="dash-head">
-        <h1>Get a verifiable credential</h1>
+        <h1>Request a verifiable credential</h1>
         <p className="muted">
-          Two steps: link your Veridian wallet to the issuer, then receive your
-          verifiable credential. We explain what happens at each step.
+          Connect your Veridian wallet, then request a credential — the issuer
+          reviews it and, if accepted, sends it to your wallet.
         </p>
       </div>
 
@@ -118,28 +109,21 @@ export function Dashboard({
         )}
       </section>
 
-      {/* ── Step 2 — Issuance ───────────────────────────────── */}
+      {/* ── Step 2 — Request ────────────────────────────────── */}
       <section className={`card step ${connected ? "active" : "locked"}`}>
         <header className="step-header">
           <span className="step-num">2</span>
           <div>
-            <h3>Receive your credential</h3>
+            <h3>Request a credential</h3>
             <p className="muted">
               {connected
-                ? "Choose a credential type the issuer offers and request it to your wallet."
+                ? "Pick a credential the issuer offers, fill in the details, and submit it for review."
                 : "Unlocks once your wallet is connected."}
             </p>
           </div>
         </header>
 
-        {connected && (
-          <CredentialStep
-            user={user}
-            credentials={credentials}
-            onIssued={refreshCredentials}
-            onGoToIssuer={onGoToIssuer}
-          />
-        )}
+        {connected && <RequestStep user={user} />}
       </section>
     </>
   );

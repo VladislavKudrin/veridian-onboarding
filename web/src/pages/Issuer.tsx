@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import {
   api,
   CatalogItem,
+  CredRequest,
   SchemaField,
   SchemaSummary,
 } from "../api";
 import { CodePeek } from "../components/CodePeek";
 import { Explain } from "../components/Explain";
+import { StatusTag } from "./RequestStep";
 
 const FIELD_TYPES: SchemaField["type"][] = [
   "string",
@@ -15,6 +17,20 @@ const FIELD_TYPES: SchemaField["type"][] = [
   "boolean",
   "date-time",
 ];
+
+const ISSUER_CODE = `// server/src/signify/signify.service.ts
+
+// Accept → issue the ACDC, then IPEX-grant it to the holder's wallet:
+const res = await client.credentials().issue(name, {
+  ri: regk, s: schemaSaid, a: { i: holderAid, ...attributes },
+});
+await waitOperation(client, res.op);
+await client.ipex().submitGrant(name, grant, gsigs, gend, [holderAid]);
+
+// Revoke → write a 'rev' event to the registry (TEL); verifiers + the
+// wallet then see the credential as invalid:
+const rev = await client.credentials().revoke(name, credSaid);
+await waitOperation(client, rev.op);`;
 
 const SAIDIFY_CODE = `// server/src/schema/saidify.ts — a schema's $id IS its SAID:
 // a Blake3 digest of the content (self-addressing), NOT a key signature.
@@ -45,13 +61,23 @@ export function Issuer({ keriaReady }: { keriaReady: boolean | null }) {
   return (
     <>
       <div className="dash-head">
-        <h1>Define what you issue</h1>
+        <h1>Issuer console</h1>
         <p className="muted">
-          A credential is issued against a <strong>schema</strong>. Build your
-          own or import a ready-made one — either way it's saidified and made
-          resolvable so the wallet and KERIA can verify credentials against it.
+          Review incoming credential requests and accept or decline them, and
+          manage the credential types (schemas) you offer.
         </p>
       </div>
+
+      {keriaReady === false && (
+        <div className="alert error">
+          KERIA is offline — you can manage schemas, but issuing requires the
+          agent. Start it with <code>docker compose up -d</code>.
+        </div>
+      )}
+
+      <IssuerRequests />
+
+      <h2 className="issuer-divider">Credential types</h2>
 
       <Explain title="What is a credential schema?" defaultOpen={false}>
         <p>
@@ -63,13 +89,6 @@ export function Issuer({ keriaReady }: { keriaReady: boolean | null }) {
           <code>/oobi/&lt;said&gt;</code>.
         </p>
       </Explain>
-
-      {keriaReady === false && (
-        <div className="alert error">
-          KERIA is offline — schemas will save and host, but won't resolve into
-          the agent until it's up.
-        </div>
-      )}
 
       <SchemaBuilder onCreated={refresh} />
 
@@ -99,6 +118,155 @@ export function Issuer({ keriaReady }: { keriaReady: boolean | null }) {
         </div>
       </section>
     </>
+  );
+}
+
+function IssuerRequests() {
+  const [requests, setRequests] = useState<CredRequest[]>([]);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [error, setError] = useState("");
+
+  async function refresh() {
+    const r = await api.listRequests().catch(() => null);
+    if (r) setRequests(r.requests);
+  }
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const pending = requests.filter((r) => r.status === "pending");
+  const decided = requests.filter((r) => r.status !== "pending");
+
+  async function decide(
+    r: CredRequest,
+    action: "accept" | "decline" | "revoke"
+  ) {
+    if (
+      action === "revoke" &&
+      !window.confirm(
+        `Revoke “${r.schemaTitle}” from ${r.holder?.displayName ?? "this holder"}? This writes a revocation event to the registry.`
+      )
+    ) {
+      return;
+    }
+    let reason = "";
+    if (action === "decline") reason = window.prompt("Reason (optional):") ?? "";
+    setError("");
+    setBusyId(r.id);
+    try {
+      if (action === "accept") await api.acceptRequest(r.id);
+      else if (action === "decline") await api.declineRequest(r.id, reason);
+      else await api.revokeRequest(r.id);
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function attrLine(r: CredRequest) {
+    return Object.entries(r.attributes)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join("  ·  ");
+  }
+
+  return (
+    <section className="card">
+      <h3 className="section-title">Requests</h3>
+      {error && <div className="alert error">{error}</div>}
+
+      {pending.length === 0 ? (
+        <p className="muted">No pending requests.</p>
+      ) : (
+        <div className="schema-list">
+          {pending.map((r) => (
+            <div className="request-item" key={r.id}>
+              <div className="schema-main">
+                <div className="schema-title">
+                  {r.holder?.displayName ?? "?"}{" "}
+                  <span className="muted">requested</span> {r.schemaTitle}
+                  {!r.connected && (
+                    <span className="status-tag declined">not connected</span>
+                  )}
+                </div>
+                <div className="schema-fields muted">{attrLine(r)}</div>
+              </div>
+              <div className="request-actions">
+                <button
+                  className="btn primary small"
+                  disabled={busyId === r.id || !r.connected}
+                  onClick={() => decide(r, "accept")}
+                  title={r.connected ? "" : "Holder must be connected"}
+                >
+                  {busyId === r.id ? "…" : "Accept"}
+                </button>
+                <button
+                  className="btn ghost small"
+                  disabled={busyId === r.id}
+                  onClick={() => decide(r, "decline")}
+                >
+                  Decline
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {decided.length > 0 && (
+        <>
+          <h4 className="section-title" style={{ marginTop: 18 }}>
+            History
+          </h4>
+          <div className="schema-list">
+            {decided.map((r) => (
+              <div className="request-item" key={r.id}>
+                <div className="schema-main">
+                  <div className="schema-title">
+                    {r.holder?.displayName ?? "?"} — {r.schemaTitle}
+                    <StatusTag status={r.status} />
+                  </div>
+                  {r.status === "declined" && r.reason && (
+                    <div className="schema-fields" style={{ color: "var(--error)" }}>
+                      Declined: {r.reason}
+                    </div>
+                  )}
+                  {r.credSaid && (
+                    <code className="schema-said">{r.credSaid}</code>
+                  )}
+                </div>
+                {r.status === "accepted" && (
+                  <div className="request-actions">
+                    <button
+                      className="btn ghost small danger"
+                      disabled={busyId === r.id}
+                      onClick={() => decide(r, "revoke")}
+                    >
+                      {busyId === r.id ? "…" : "Revoke"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <Explain endpoint="POST /requests/:id/accept">
+        <p>
+          Accepting mints the ACDC against the requested schema with the
+          holder's values and IPEX-grants it to their wallet AID — where they
+          accept it. Declining records a reason the holder sees.
+        </p>
+      </Explain>
+
+      <CodePeek
+        file="server/src/signify/signify.service.ts"
+        symbol="issue & revoke"
+        code={ISSUER_CODE}
+      />
+    </section>
   );
 }
 

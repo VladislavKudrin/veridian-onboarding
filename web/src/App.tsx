@@ -3,12 +3,11 @@ import { api, getToken, setToken, User } from "./api";
 import { Dashboard } from "./pages/Dashboard";
 import { Issuer } from "./pages/Issuer";
 import { Login } from "./pages/Login";
-import { Shell, Tab } from "./pages/Shell";
+import { Shell } from "./pages/Shell";
 
 export function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>("holder");
   const [keriaReady, setKeriaReady] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -45,21 +44,11 @@ export function App() {
   }
 
   return (
-    <Shell
-      user={user}
-      onLogout={handleLogout}
-      tab={tab}
-      setTab={setTab}
-      keriaReady={keriaReady}
-    >
-      {tab === "holder" ? (
-        <Dashboard
-          user={user}
-          keriaReady={keriaReady}
-          onGoToIssuer={() => setTab("issuer")}
-        />
-      ) : (
+    <Shell user={user} onLogout={handleLogout} keriaReady={keriaReady}>
+      {user.role === "issuer" ? (
         <Issuer keriaReady={keriaReady} />
+      ) : (
+        <Dashboard user={user} keriaReady={keriaReady} />
       )}
     </Shell>
   );

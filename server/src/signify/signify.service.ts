@@ -302,6 +302,14 @@ class SignifyService {
     return { said: credential.sad.d };
   }
 
+  /** Revoke a credential — writes a `rev` event to the registry (TEL). */
+  async revokeCredential(credSaid: string): Promise<void> {
+    const result = await this.client
+      .credentials()
+      .revoke(config.keria.agentName, credSaid);
+    await waitOperation(this.client, result.op);
+  }
+
   /**
    * Build an IPEX grant exactly like signify's `ipex().grant()`, but inject
    * `a.oobiUrl` so the holder's wallet knows where to fetch the credential's

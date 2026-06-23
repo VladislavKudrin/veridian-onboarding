@@ -1,20 +1,14 @@
 import { ReactNode } from "react";
 import { User } from "../api";
 
-export type Tab = "holder" | "issuer";
-
 export function Shell({
   user,
   onLogout,
-  tab,
-  setTab,
   keriaReady,
   children,
 }: {
   user: User;
   onLogout: () => void;
-  tab: Tab;
-  setTab: (t: Tab) => void;
   keriaReady: boolean | null;
   children: ReactNode;
 }) {
@@ -24,22 +18,10 @@ export function Shell({
         <div className="brand-inline">
           <span className="brand-mark sm">◇</span>
           <span>Veridian Sandbox</span>
+          <span className={`role-chip ${user.role}`}>
+            {user.role === "issuer" ? "Issuer" : "Holder"}
+          </span>
         </div>
-
-        <nav className="tabs">
-          <button
-            className={`tab ${tab === "holder" ? "active" : ""}`}
-            onClick={() => setTab("holder")}
-          >
-            Holder
-          </button>
-          <button
-            className={`tab ${tab === "issuer" ? "active" : ""}`}
-            onClick={() => setTab("issuer")}
-          >
-            Issuer
-          </button>
-        </nav>
 
         <div className="topbar-right">
           <KeriaBadge ready={keriaReady} />

@@ -37,3 +37,16 @@ export function requireAuth(
     res.status(401).json({ error: "Invalid or expired token" });
   }
 }
+
+/** Allow only the issuer account. Use after requireAuth. */
+export function requireIssuer(
+  req: AuthedRequest,
+  res: Response,
+  next: NextFunction
+): void {
+  if (req.user?.role !== "issuer") {
+    res.status(403).json({ error: "Issuer only" });
+    return;
+  }
+  next();
+}

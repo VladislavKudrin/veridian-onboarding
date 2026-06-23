@@ -452,6 +452,99 @@ select:focus {
   color: var(--text);
 }
 
+/* ── Roles, requests, status ───────────── */
+.role-chip {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  margin-left: 4px;
+}
+
+.role-chip.issuer {
+  color: var(--primary);
+  background: rgba(108, 140, 255, 0.12);
+  border: 1px solid rgba(108, 140, 255, 0.4);
+}
+
+.role-chip.holder {
+  color: var(--ok);
+  background: rgba(62, 207, 142, 0.12);
+  border: 1px solid rgba(62, 207, 142, 0.4);
+}
+
+.status-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.status-tag.pending {
+  color: var(--warn);
+  background: rgba(255, 180, 84, 0.1);
+  border-color: rgba(255, 180, 84, 0.4);
+}
+
+.status-tag.accepted {
+  color: var(--ok);
+  background: rgba(62, 207, 142, 0.1);
+  border-color: rgba(62, 207, 142, 0.4);
+}
+
+.status-tag.declined,
+.status-tag.revoked {
+  color: var(--error);
+  background: rgba(255, 107, 107, 0.1);
+  border-color: rgba(255, 107, 107, 0.4);
+}
+
+.btn.ghost.danger {
+  color: var(--error);
+  border-color: rgba(255, 107, 107, 0.4);
+}
+
+.btn.ghost.danger:hover:not(:disabled) {
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.request-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.request-actions {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.issuer-divider {
+  font-size: 18px;
+  margin: 28px 0 4px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+}
+
 /* ── Issuance step ─────────────────────── */
 .issue {
   margin-top: 18px;

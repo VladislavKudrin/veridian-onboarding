@@ -5,6 +5,7 @@ import { getSchemaBySaid, listSchemas, seedAdmin } from "./db";
 import { authRouter } from "./routes/auth.routes";
 import { connectionRouter } from "./routes/connection.routes";
 import { credentialRouter } from "./routes/credential.routes";
+import { requestRouter } from "./routes/request.routes";
 import { schemaRouter } from "./routes/schema.routes";
 import { signifyService } from "./signify/signify.service";
 
@@ -50,6 +51,7 @@ async function main() {
   app.use("/auth", authRouter);
   app.use("/connection", connectionRouter);
   app.use("/credentials", credentialRouter);
+  app.use("/requests", requestRouter);
   app.use("/schemas", schemaRouter);
 
   app.listen(config.port, () => {
