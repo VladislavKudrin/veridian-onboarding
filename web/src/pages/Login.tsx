@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { api, setToken, User } from "../api";
 import { CodePeek } from "../components/CodePeek";
 import { Explain } from "../components/Explain";
+import { useTour } from "../tour/Tour";
 
 type Mode = "login" | "register" | "credential";
 
@@ -29,6 +30,7 @@ const FAIL_MESSAGES: Record<string, string> = {
 };
 
 export function Login({ onLogin }: { onLogin: (user: User) => void }) {
+  const { start: startTour } = useTour();
   const [mode, setMode] = useState<Mode>("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -208,6 +210,7 @@ export function Login({ onLogin }: { onLogin: (user: User) => void }) {
               <button
                 type="button"
                 className="btn ghost"
+                data-tour="wallet-login"
                 onClick={() => {
                   setMode("credential");
                   setError("");
@@ -275,6 +278,11 @@ export function Login({ onLogin }: { onLogin: (user: User) => void }) {
               </button>
               <br />
               Issuer demo: <code>admin / admin</code>
+              <br />
+              New to all this?{" "}
+              <button type="button" className="link-btn" onClick={startTour}>
+                Take the guided tour
+              </button>
             </>
           )}
         </p>

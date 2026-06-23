@@ -29,7 +29,6 @@ export interface IssueCredentialInput {
 
 /**
  * Holds the long-lived platform agent (a Signify client connected to KERIA).
- * Ported and slimmed from chalmuns-cantina-backend's SignifyService.
  */
 class SignifyService {
   private client!: SignifyClient;

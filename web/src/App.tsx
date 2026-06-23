@@ -4,6 +4,8 @@ import { Dashboard } from "./pages/Dashboard";
 import { Issuer } from "./pages/Issuer";
 import { Login } from "./pages/Login";
 import { Shell } from "./pages/Shell";
+import { TourProvider } from "./tour/Tour";
+import { TourRole } from "./tour/steps";
 
 export function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -35,21 +37,23 @@ export function App() {
     setUser(null);
   }
 
-  if (loading) {
-    return <div className="centered muted">Loading…</div>;
-  }
-
-  if (!user) {
-    return <Login onLogin={setUser} />;
-  }
+  const role: TourRole = user ? (user.role as TourRole) : "loggedout";
 
   return (
-    <Shell user={user} onLogout={handleLogout} keriaReady={keriaReady}>
-      {user.role === "issuer" ? (
-        <Issuer keriaReady={keriaReady} />
+    <TourProvider role={role}>
+      {loading ? (
+        <div className="centered muted">Loading…</div>
+      ) : !user ? (
+        <Login onLogin={setUser} />
       ) : (
-        <Dashboard user={user} keriaReady={keriaReady} />
+        <Shell user={user} onLogout={handleLogout} keriaReady={keriaReady}>
+          {user.role === "issuer" ? (
+            <Issuer keriaReady={keriaReady} />
+          ) : (
+            <Dashboard user={user} keriaReady={keriaReady} />
+          )}
+        </Shell>
       )}
-    </Shell>
+    </TourProvider>
   );
 }

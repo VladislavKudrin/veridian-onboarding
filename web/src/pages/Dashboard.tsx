@@ -64,10 +64,17 @@ export function Dashboard({
         </div>
       )}
 
-      {!connected && <Prerequisites />}
+      {!connected && (
+        <div data-tour="prerequisites">
+          <Prerequisites />
+        </div>
+      )}
 
       {/* ── Step 1 — Connection ─────────────────────────────── */}
-      <section className={`card step ${connected ? "done" : "active"}`}>
+      <section
+        className={`card step ${connected ? "done" : "active"}`}
+        data-tour="connect"
+      >
         <header className="step-header">
           <span className="step-num">{connected ? "✓" : "1"}</span>
           <div>
@@ -110,7 +117,10 @@ export function Dashboard({
       </section>
 
       {/* ── Step 2 — Request ────────────────────────────────── */}
-      <section className={`card step ${connected ? "active" : "locked"}`}>
+      <section
+        className={`card step ${connected ? "active" : "locked"}`}
+        data-tour="request"
+      >
         <header className="step-header">
           <span className="step-num">2</span>
           <div>

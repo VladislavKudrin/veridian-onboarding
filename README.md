@@ -2,62 +2,41 @@
 
 A self-contained, **guided** proof-of-concept for integrating the
 [Veridian](https://veridian.id) identity wallet and KERI infrastructure into
-your own product. Spin up the infra with one command, log in, and walk through
-each step of the flow with an explanation of *what's happening under the hood*
-— so you can lift the chunks you need into your own app.
+your own product. One command brings up the whole stack — agent, witnesses,
+issuer backend, and a web UI that walks you through each step and shows the
+code behind it — so you can lift the chunks you need into your own app.
 
-It ships as a generic **issuer** ("Veridian Sandbox") that hands a verifiable
-credential to any holder's wallet — a university, an employer, a government, you
-name it. Swap the branding, the schema, and the mock auth and it's your own
-flow.
+## Quick start
 
-```
-veridian-poc/
-├── docker-compose.yml   The WHOLE stack: infra + server + web
-├── infra/keria-config/  Vendored agent + witness config
-├── server/              Express + signify-ts agent + SQLite   (port 4000)
-└── web/                 Vite + React guided UI                 (port 5173)
-```
-
-We build it in **chunks**. Done so far:
-
-- ✅ **Connection** — mutual OOBI introduction between the issuer and the wallet.
-- ✅ **Issuer / schemas** — an Issuer tab to build a custom ACDC schema (or
-  import a bundled/vLEI one), saidify it, host it, and resolve it into KERIA.
-- ✅ **Issuance + accept** — the holder picks a credential type, fills its
-  attributes, and the issuer mints the ACDC + IPEX-grants it to the wallet,
-  which **accepts** it (the grant carries the schema's `oobiUrl` so the wallet
-  can resolve it — works for wallets on any KERIA, no domain).
-
----
-
-## Quick start — one command
+After cloning, two steps:
 
 ```bash
-cp .env.example .env     # then add your ngrok authtoken (see below)
+cp .env.example .env     # add a free ngrok authtoken — see "Wallet reach" below
 docker compose up --build
 ```
 
-That's the whole onboarding. It builds and runs everything:
-
-| Service     | URL                     | Purpose                                    |
-| ----------- | ----------------------- | ------------------------------------------ |
-| `web`         | http://localhost:5173   | The guided UI (start here)                |
-| `server`      | http://localhost:4000   | Backend / platform agent                  |
-| `ngrok`       | http://localhost:4040   | Public tunnel for KERIA (OOBI/boot/connect) |
-| `cloudflared` | —                       | Public tunnel for the schema host (no token) |
-| `keria`       | http://localhost:3901   | The agent that hosts cloud identifiers    |
-| `keria`       | http://localhost:3903   | Boot endpoint (first-run agent bootstrap) |
-| `witnesses`   | http://localhost:5642…7 | 6 demo witnesses that receipt key events  |
-
-No other repositories or local Node required — agent/witness config is vendored
-under `infra/keria-config/`. The backend waits for KERIA to come up, then logs:
+That's the whole onboarding — it builds and runs everything. No other
+repositories or local Node needed; the agent/witness config is vendored under
+`infra/`. The backend waits for KERIA, then logs:
 
 ```
 [signify] agent "VeridianPoc" ready (AID E…)
 ```
 
-Open **http://localhost:5173** and jump to *Walk the guided flow* below.
+Then open **http://localhost:5173**, sign in as the issuer with **admin /
+admin**, and a **guided tour** starts automatically — follow it end to end
+(it hands off between the issuer and holder roles) or replay it anytime from
+**? Tour** in the top bar.
+
+| Service       | URL                     | Purpose                                      |
+| ------------- | ----------------------- | -------------------------------------------- |
+| `web`         | http://localhost:5173   | The guided UI (start here)                   |
+| `server`      | http://localhost:4000   | Backend / issuer agent                       |
+| `ngrok`       | http://localhost:4040   | Public tunnel for KERIA (OOBI/boot/connect)  |
+| `cloudflared` | —                       | Public tunnel for the schema host (no token) |
+| `keria`       | http://localhost:3901   | The agent that hosts cloud identifiers       |
+| `keria`       | http://localhost:3903   | Boot endpoint (first-run agent bootstrap)    |
+| `witnesses`   | http://localhost:5642…7 | 6 demo witnesses that receipt key events     |
 
 > The issuer's seed (`SIGNIFY_BRAN`) is **pinned** by default, so the same
 > issuer AID survives restarts (paired with the persistent `keria-data`
@@ -65,9 +44,41 @@ Open **http://localhost:5173** and jump to *Walk the guided flow* below.
 > the agent (new AID), and forces a wallet reconnect. Use `stop` / `down`
 > (no `-v`) for routine starts and stops.
 
+## What's inside
+
+A generic **issuer** ("Veridian Sandbox") that hands verifiable credentials to
+any holder's wallet — a university, an employer, a government, you name it. Swap
+the branding, the schema, and the mock auth and it's your own flow.
+
+```
+veridian-poc/
+├── docker-compose.yml   The WHOLE stack: infra + server + web
+├── infra/               Vendored agent + witness config, tunnels
+├── server/              Express + signify-ts agent + SQLite   (port 4000)
+└── web/                 Vite + React guided UI                 (port 5173)
+```
+
+The full credential lifecycle, each step explained in the UI with a *what's
+happening* note and the code that does it:
+
+- **Connection** — mutual OOBI introduction between the issuer and the wallet.
+- **Issuer / schemas** — build a custom ACDC schema (or import a bundled/vLEI
+  one), saidify it, host it, and resolve it into KERIA.
+- **Request → approve** — a holder picks a credential type, fills its
+  attributes, and **requests** it; the issuer **accepts** (mints the ACDC and
+  IPEX-grants it to the wallet, which admits it) or **declines**.
+- **Revocation** — the issuer can revoke an issued credential; the holder sees
+  the revoked status.
+- **Login with a credential** — designate login-enabled schemas, then sign in
+  by presenting a credential from the wallet (no password): the platform sends
+  a presentation request, verifies the disclosed credential, and starts a
+  session.
+
+Everything below is reference detail — reach for it only when you need it.
+
 ---
 
-## Making the wallet reach KERIA (OOBI host)
+## Wallet reach — making the wallet find KERIA (OOBI host)
 
 The OOBI a wallet scans is just a **URL the wallet must fetch**. A local-only
 stack advertises Docker-internal hostnames, so a wallet (e.g. the Veridian
@@ -94,8 +105,7 @@ Configured in `.env` via `KERIA_PUBLIC_URL` (+ `NGROK_AUTHTOKEN`):
   The URL never changes, so the wallet connection survives restarts.
 - **Your own domain (no tunnel)** — set
   `KERIA_PUBLIC_URL=https://keria.yourdomain.org`, point it at this host's port
-  `3902`, and disable the tunnel with `COMPOSE_PROFILES=` (empty). How a
-  production deployment (like the chalmuns reference) hosts it.
+  `3902`, and disable the tunnel with `COMPOSE_PROFILES=` (empty).
 - **`local`** — internal only; the stack runs but no external wallet can
   connect. Fine for development without a wallet.
 
@@ -127,13 +137,13 @@ docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d --build
 On a host with a public IP, ports **80 + 443** open, and DNS A-records → this
 host for each subdomain, Traefik gets Let's Encrypt certs and routes:
 
-| Subdomain                       | →   | Purpose                          |
-| ------------------------------- | --- | -------------------------------- |
-| `keria.${PUBLIC_DOMAIN}`        | 3901 | connect / admin                 |
-| `keria-boot.${PUBLIC_DOMAIN}`   | 3903 | boot                            |
-| `keria-ext.${PUBLIC_DOMAIN}`    | 3902 | curls / OOBI                    |
+| Subdomain                       | →      | Purpose                                |
+| ------------------------------- | ------ | -------------------------------------- |
+| `keria.${PUBLIC_DOMAIN}`        | 3901   | connect / admin                        |
+| `keria-boot.${PUBLIC_DOMAIN}`   | 3903   | boot                                   |
+| `keria-ext.${PUBLIC_DOMAIN}`    | 3902   | curls / OOBI                           |
 | `cred-issuance.${PUBLIC_DOMAIN}`| server | **public schema host** (`/oobi/:said`) |
-| `app.${PUBLIC_DOMAIN}`          | web | the guided UI                    |
+| `app.${PUBLIC_DOMAIN}`          | web    | the guided UI                          |
 
 The overlay derives `KERIA_PUBLIC_URL`, `SCHEMA_PUBLIC_URL`, and the wallet
 boot/connect URLs from `PUBLIC_DOMAIN` automatically; ngrok is not used. The
@@ -160,24 +170,6 @@ cd web && npm install && npm run dev                              # :5173 (Vite 
 
 ---
 
-## Walk the guided flow
-
-1. Open http://localhost:5173 and sign in with **admin / admin**.
-2. **Before you start.** Any Veridian wallet works. If you don't have one, the
-   card expands to show this sandbox's **Boot / Connect URLs** so you can spin a
-   wallet up on our KERIA (those URLs only decide *where your wallet's agent
-   lives* — any wallet can use this issuer regardless).
-3. **Step 1 — Connect your wallet.** Two halves, each with a "💡 what's
-   happening" note + the API call:
-   - **A** — scan the issuer's OOBI QR into your wallet.
-   - **B** — give your wallet's OOBI back (camera scan or paste), then
-     **Establish Connection**.
-4. **Step 2 — Receive your credential.** Pick a credential type the issuer
-   offers, fill its attributes, **Request** — the issuer mints the ACDC and
-   IPEX-grants it to your wallet, where you **accept** it from notifications.
-
----
-
 ## How the connection works (the concept you're lifting)
 
 A Veridian connection is a **mutual OOBI resolution** — no accounts, no
@@ -196,9 +188,9 @@ The relevant server code lives in `server/src/signify/` (`getClientOobi`,
 
 ---
 
-## Defining what to issue (the Issuer tab)
+## Defining what to issue (schemas)
 
-A credential is issued against a **schema**. The **Issuer** tab lets you:
+A credential is issued against a **schema**. The **Issuer** console lets you:
 
 - **Build** one from a few fields → the backend generates an ACDC JSON Schema and
   **saidifies** it (`Saider.saidify` — the `$id` is a digest of the content, a
@@ -209,28 +201,29 @@ A credential is issued against a **schema**. The **Issuer** tab lets you:
 The server **hosts** every stored schema at unauthenticated `GET /oobi/:said`.
 Two parties resolve it: **our** KERIA (to issue) reaches it internally via
 `SCHEMA_HOST` (`http://server:4000` / `http://host.docker.internal:4000`); the
-**wallet's** KERIA (to *accept*) reaches it via `SCHEMA_PUBLIC_URL` — see below.
+**wallet's** KERIA (to *admit*) reaches it via `SCHEMA_PUBLIC_URL` — see below.
 
 Saidification is in `server/src/schema/saidify.ts` (verified to reproduce
 keripy's SAIDs exactly).
 
 ---
 
-## Receiving a credential (the accept step)
+## Reaching the schema from any wallet (grant & presentation)
 
-To **admit** a credential, the wallet's KERIA must resolve the credential's
-**schema**. So the schema host has to be reachable by that KERIA — internal is
-enough only if the wallet runs on *our* KERIA; for **any** wallet it must be
-public. Two pieces make this work, with no domain:
+To **admit** a credential (or answer a presentation request), the wallet's KERIA
+must resolve the credential's **schema**. So the schema host has to be reachable
+by that KERIA — internal is enough only if the wallet runs on *our* KERIA; for
+**any** wallet it must be public. Two pieces make this work, with no domain:
 
 - **A public schema host** — the `cloudflared` service opens a quick tunnel to
   the schema host (no account, token, or domain). The server auto-reads its URL
   from the tunnel log; override with `SCHEMA_PUBLIC_URL` to pin your own.
 - **Telling the wallet where the schema is** — the issuer hand-builds the IPEX
-  grant with `exn.a.oobiUrl` set to the public schema base
-  (`server/src/signify/signify.service.ts` → `grantWithSchemaOobi`). The wallet
-  reads that and resolves `<oobiUrl>/<said>`. (signify's stock `grant()` can't
-  inject it, hence the hand-build.)
+  message (the issuance **grant** and the login **apply**) with `exn.a.oobiUrl`
+  set to the public schema base, in
+  `server/src/signify/signify.service.ts`. The wallet reads that and resolves
+  `<oobiUrl>/<said>`. (signify's stock `grant()` / `apply()` can't inject it,
+  hence the hand-build — without it the wallet silently drops the message.)
 
 `schemaPublicBase()` (`server/src/schema/publicUrl.ts`) resolves the schema URL:
 explicit `SCHEMA_PUBLIC_URL` → the cloudflared tunnel → the internal host. With
@@ -238,31 +231,47 @@ a domain, the Traefik overlay sets it to `cred-issuance.${PUBLIC_DOMAIN}`.
 
 ---
 
-## API surface
+## Login with a credential (verifiable presentation)
 
-| Method | Path                  | Auth | Description                          |
-| ------ | --------------------- | ---- | ----------------------------------- |
-| POST   | `/auth/login`         | —    | Mock login → JWT                    |
-| GET    | `/auth/me`            | JWT  | Current user                        |
-| GET    | `/health`             | —    | Server + KERIA agent status         |
-| GET    | `/info`               | —    | Sandbox info + wallet boot/connect URLs |
-| GET    | `/oobi/:said`         | —    | Hosted schema OOBI (KERIA/wallet fetches this) |
-| GET    | `/connection/oobi`    | JWT  | Issuer OOBI + AID (for the QR)      |
-| GET    | `/connection`         | JWT  | Connection state, validated vs the live agent (flags `stale`) |
-| POST   | `/connection/resolve` | JWT  | Resolve wallet OOBI → connect       |
-| DELETE | `/connection`         | JWT  | Disconnect / start over             |
-| GET    | `/schemas`            | JWT  | Schemas you've built/imported (with typed attributes) |
-| GET    | `/schemas/catalog`    | JWT  | Bundled/vLEI schemas to import      |
-| POST   | `/schemas`            | JWT  | Build + saidify + host + resolve    |
-| POST   | `/schemas/import`     | JWT  | Import a catalog schema             |
-| DELETE | `/schemas/:said`      | JWT  | Remove a schema                     |
-| GET    | `/credentials`        | JWT  | Credentials issued to the holder    |
-| POST   | `/credentials/issue`  | JWT  | Issue chosen schema + IPEX-grant to wallet |
+The issuer marks one or more schemas **login-enabled** (🔑 toggle). To sign in,
+the holder chooses "Log in with your wallet" and enters a username; the platform
+sends an IPEX presentation request (`apply`) to that account's wallet, the
+holder approves and presents a credential, and a background poller verifies it —
+**login-enabled schema · issued by us · holder AID matches · not revoked** —
+before minting the session. See `server/src/signify/signify.service.ts`
+(`sendPresentation`), `server/src/auth/credLoginPoller.ts`, and
+`server/src/auth/loginSessions.ts`.
 
 ---
 
-## Notes
+## API surface
 
-- The signify integration is adapted from `chalmuns-cantina-backend`, slimmed
-  into a framework-agnostic service.
-- This is a POC: a single mock user, simplified error handling.
+| Method | Path                  | Auth   | Description                                                    |
+| ------ | --------------------- | ------ | ------------------------------------------------------------- |
+| POST   | `/auth/register`      | —      | Create a holder account                                       |
+| POST   | `/auth/login`         | —      | Password login → JWT                                          |
+| POST   | `/auth/cred-login/start` | —   | Begin login-with-credential → presentation request           |
+| GET    | `/auth/cred-login/:id`| —      | Poll login-with-credential status → JWT on success            |
+| GET    | `/auth/me`            | JWT    | Current user                                                  |
+| GET    | `/health`             | —      | Server + KERIA agent status                                   |
+| GET    | `/info`               | —      | Sandbox info + wallet boot/connect URLs                       |
+| GET    | `/oobi/:said`         | —      | Hosted schema OOBI (KERIA/wallet fetches this)                |
+| GET    | `/connection/oobi`    | JWT    | Issuer OOBI + AID (for the QR)                                |
+| GET    | `/connection`         | JWT    | Connection state, validated vs the live agent (flags `stale`) |
+| POST   | `/connection/resolve` | JWT    | Resolve wallet OOBI → connect                                 |
+| DELETE | `/connection`         | JWT    | Disconnect / start over                                       |
+| GET    | `/schemas`            | JWT    | Schemas you've built/imported (with typed attributes)         |
+| GET    | `/schemas/catalog`    | JWT    | Bundled/vLEI schemas to import                                |
+| POST   | `/schemas`            | JWT    | Build + saidify + host + resolve                              |
+| POST   | `/schemas/import`     | JWT    | Import a catalog schema                                       |
+| POST   | `/schemas/:said/login`| Issuer | Toggle whether a schema can be used to log in                 |
+| DELETE | `/schemas/:said`      | JWT    | Remove a schema                                               |
+| GET    | `/credentials`        | JWT    | Credentials issued to the holder                              |
+| GET    | `/requests`           | JWT    | Credential requests (holder's own, or all for the issuer)     |
+| POST   | `/requests`           | JWT    | Holder requests a credential                                  |
+| POST   | `/requests/:id/accept`| Issuer | Accept → mint ACDC + IPEX-grant to wallet                     |
+| POST   | `/requests/:id/decline`| Issuer | Decline a request                                            |
+| POST   | `/requests/:id/revoke`| Issuer | Revoke an issued credential                                   |
+
+> This is a POC: simplified error handling and lightweight SQLite storage.
+> Authentication is a starting point, not production-hardened.

@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { User } from "../api";
+import { useTour } from "../tour/Tour";
 
 export function Shell({
   user,
@@ -12,6 +13,7 @@ export function Shell({
   keriaReady: boolean | null;
   children: ReactNode;
 }) {
+  const { start } = useTour();
   return (
     <div className="page">
       <header className="topbar">
@@ -25,6 +27,13 @@ export function Shell({
 
         <div className="topbar-right">
           <KeriaBadge ready={keriaReady} />
+          <button
+            className="btn ghost small tour-launch"
+            onClick={start}
+            title="Take the guided tour"
+          >
+            ? Tour
+          </button>
           <span className="muted">{user.displayName}</span>
           <button className="btn ghost small" onClick={onLogout}>
             Log out

@@ -75,7 +75,9 @@ export function Issuer({ keriaReady }: { keriaReady: boolean | null }) {
         </div>
       )}
 
-      <IssuerRequests />
+      <div data-tour="requests">
+        <IssuerRequests />
+      </div>
 
       <h2 className="issuer-divider">Credential types</h2>
 
@@ -90,7 +92,9 @@ export function Issuer({ keriaReady }: { keriaReady: boolean | null }) {
         </p>
       </Explain>
 
-      <SchemaBuilder onCreated={refresh} />
+      <div data-tour="schemas">
+        <SchemaBuilder onCreated={refresh} />
+      </div>
 
       <section className="card">
         <h3 className="section-title">Your schemas</h3>
