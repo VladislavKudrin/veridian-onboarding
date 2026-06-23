@@ -15,6 +15,13 @@ export async function waitOperation<T = any>(
     .wait(op, { signal: signal ?? AbortSignal.timeout(30000) });
 
   await deleteOperations(client, op);
+
+  // A completed operation can still carry a failure (e.g. a rejected OOBI).
+  // Surface it instead of silently reporting success.
+  const err = (op as any).error;
+  if (err) {
+    throw new Error(err.message || `Operation ${op.name} failed`);
+  }
   return op;
 }
 

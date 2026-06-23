@@ -54,15 +54,34 @@ services:
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN:-}
       - NGROK_DOMAIN=${NGROK_DOMAIN:-}
-    # If NGROK_DOMAIN is set, claim that reserved (stable) domain; otherwise
-    # open a random free tunnel. ($$ defers expansion to the container shell.)
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - 'ngrok http $${NGROK_DOMAIN:+--url=https://$$NGROK_DOMAIN} keria:3902 --config /etc/ngrok.yml'
+    # Exposes keria 3902 (protocol/OOBI — reserved domain if NGROK_DOMAIN set),
+    # 3901 (connect) and 3903 (boot) so a wallet on a phone can reach them.
+    entrypoint: ["/bin/sh", "/ngrok-entrypoint.sh"]
     volumes:
-      - ./infra/ngrok/ngrok.yml:/etc/ngrok.yml:ro
+      - ./infra/ngrok/entrypoint.sh:/ngrok-entrypoint.sh:ro
     ports:
       - "4040:4040" # ngrok inspection API / UI
+
+  # Public tunnel for the SCHEMA host, so ANY wallet's KERIA can fetch schemas
+  # (needed for wallets on other infra). cloudflared quick tunnels need NO
+  # account/token; the server auto-reads the URL from /cf/cf.log. Targets the
+  # host's :4000 so it works whether the server runs in docker or on the host.
+  cloudflared:
+    container_name: veridian-poc-cloudflared
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    profiles: ["tunnel"]
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --url
+      - http://host.docker.internal:4000
+      - --logfile
+      - /cf/cf.log
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./infra/cloudflared:/cf
 
   witnesses:
     container_name: veridian-poc-witnesses
@@ -103,6 +122,11 @@ services:
       - DB_PATH=/app/data/veridian-poc.sqlite
       # KERIA fetches hosted schema OOBIs from the server over the compose network.
       - SCHEMA_HOST=http://server:4000
+      # Discover public boot/connect tunnel URLs to show the user.
+      - NGROK_API_URL=http://ngrok:4040
+      # Read the cloudflared schema-tunnel URL (auto-fills the grant's oobiUrl).
+      - CLOUDFLARED_LOG=/cf/cf.log
+    # (schema tunnel log, written by the cloudflared service)
       # Fixed 21-char passcode -> stable issuer AID/registry/connection across
       # restarts (paired with the persistent keria-data volume).
       - SIGNIFY_BRAN=${SIGNIFY_BRAN:-veridianPocStableSeed}
@@ -111,6 +135,7 @@ services:
       - SCHEMA_OOBI_URL=
     volumes:
       - server-data:/app/data
+      - ./infra/cloudflared:/cf:ro
     ports:
       - "4000:4000"
     depends_on:

@@ -1,12 +1,23 @@
 import { useEffect, useState } from "react";
-import { api, Connection } from "../api";
+import { api, Connection, IssuedCredential, User } from "../api";
 import { ConnectionGuide } from "./ConnectionGuide";
+import { CredentialStep } from "./CredentialStep";
+import { Prerequisites } from "./Prerequisites";
 
-export function Dashboard({ keriaReady }: { keriaReady: boolean | null }) {
+export function Dashboard({
+  user,
+  keriaReady,
+  onGoToIssuer,
+}: {
+  user: User;
+  keriaReady: boolean | null;
+  onGoToIssuer: () => void;
+}) {
   const [connection, setConnection] = useState<Connection | null>(null);
   const [connected, setConnected] = useState(false);
   const [staleReason, setStaleReason] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [credentials, setCredentials] = useState<IssuedCredential[]>([]);
 
   async function refresh() {
     const conn = await api.getConnection().catch(() => null);
@@ -17,8 +28,14 @@ export function Dashboard({ keriaReady }: { keriaReady: boolean | null }) {
     }
   }
 
+  async function refreshCredentials() {
+    const r = await api.listCredentials().catch(() => null);
+    if (r) setCredentials(r.credentials);
+  }
+
   useEffect(() => {
     refresh();
+    refreshCredentials();
   }, []);
 
   function handleConnected(c: Connection) {
@@ -56,6 +73,8 @@ export function Dashboard({ keriaReady }: { keriaReady: boolean | null }) {
         </div>
       )}
 
+      {!connected && <Prerequisites />}
+
       {/* ── Step 1 — Connection ─────────────────────────────── */}
       <section className={`card step ${connected ? "done" : "active"}`}>
         <header className="step-header">
@@ -90,27 +109,37 @@ export function Dashboard({ keriaReady }: { keriaReady: boolean | null }) {
         ) : (
           <>
             {staleReason && (
-              <div className="alert error">{staleMessage(staleReason)}</div>
+              <div className="alert error" style={{ marginTop: 18 }}>
+                {staleMessage(staleReason)}
+              </div>
             )}
             <ConnectionGuide onConnected={handleConnected} />
           </>
         )}
       </section>
 
-      {/* ── Step 2 — Issuance (next chunk) ──────────────────── */}
-      <section className="card step locked">
+      {/* ── Step 2 — Issuance ───────────────────────────────── */}
+      <section className={`card step ${connected ? "active" : "locked"}`}>
         <header className="step-header">
           <span className="step-num">2</span>
           <div>
             <h3>Receive your credential</h3>
             <p className="muted">
               {connected
-                ? "Coming next: the issuer creates an ACDC credential and IPEX-grants it to your wallet."
+                ? "Choose a credential type the issuer offers and request it to your wallet."
                 : "Unlocks once your wallet is connected."}
             </p>
           </div>
         </header>
-        <span className="chip">Next chunk →</span>
+
+        {connected && (
+          <CredentialStep
+            user={user}
+            credentials={credentials}
+            onIssued={refreshCredentials}
+            onGoToIssuer={onGoToIssuer}
+          />
+        )}
       </section>
     </>
   );

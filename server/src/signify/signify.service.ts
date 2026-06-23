@@ -1,15 +1,21 @@
 import {
+  b,
+  d,
   EventResult,
+  messagize,
   randomPasscode,
   ready,
+  serializeACDCAttachment,
+  serializeIssExnAttachment,
   Serder,
+  Siger,
   SignifyClient,
   Tier,
 } from "signify-ts";
 import { config } from "../config";
+import { schemaPublicBase } from "../schema/publicUrl";
 import {
   getAidFromOobi,
-  getCredentialIdsByEmail,
   getEndRoles,
   getRegistry,
   waitOperation,
@@ -17,9 +23,8 @@ import {
 
 export interface IssueCredentialInput {
   userAid: string;
-  email: string;
-  firstName: string;
-  lastName: string;
+  schemaSaid: string;
+  attributes: Record<string, unknown>;
 }
 
 /**
@@ -140,6 +145,9 @@ class SignifyService {
         .addEndRole(name, "indexer", prefix);
       await waitOperation(this.client, await result.op());
     }
+
+    // (The wallet learns the schema host from the grant's `oobiUrl` instead of
+    // an indexer loc-scheme — see grantWithSchemaOobi.)
   }
 
   private async ensureRegistry(): Promise<void> {
@@ -195,9 +203,20 @@ class SignifyService {
    * agent can validate credentials issued against it. Throws on failure.
    */
   async resolveSchemaSaid(said: string): Promise<void> {
+    // Idempotent: if KERIA already has the schema, re-resolving the OOBI errors,
+    // so just stop here.
+    try {
+      await this.client.schemas().get(said);
+      return;
+    } catch {
+      /* not loaded yet — resolve it below */
+    }
+
     const url = `${config.schema.host}/oobi/${said}`;
     const op = await this.client.oobis().resolve(url);
-    await waitOperation(this.client, op);
+    await waitOperation(this.client, op); // throws on a real resolve failure
+    // Confirm it truly loaded (a resolve can "complete" without loading it).
+    await this.client.schemas().get(said);
     console.log(`[signify] resolved schema OOBI: ${url}`);
   }
 
@@ -244,45 +263,21 @@ class SignifyService {
     return { userAid };
   }
 
-  async hasActiveCredentials(email: string): Promise<boolean> {
-    const issuerAid = await this.getClientAid();
-    const ids = await getCredentialIdsByEmail(
-      this.client,
-      email,
-      config.schema.said,
-      issuerAid,
-      false
-    );
-    return ids.length > 0;
-  }
-
-  /** Issue the ACDC and IPEX-grant it to the user's AID (-> wallet notification). */
+  /**
+   * Issue an ACDC against the given schema with arbitrary attributes, then
+   * IPEX-grant it to the user's AID (-> arrives as a wallet notification).
+   */
   async issueCredentials(input: IssueCredentialInput): Promise<{ said: string }> {
     const client = this.client;
     const name = config.keria.agentName;
-    const schemaSaid = config.schema.said;
     const regk = await getRegistry(client, name);
-    const issuerAid = await this.getClientAid();
-
-    const existing = await getCredentialIdsByEmail(
-      client,
-      input.email,
-      schemaSaid,
-      issuerAid,
-      false
-    );
-    if (existing.length > 0) {
-      throw new Error("User already has a valid credential");
-    }
 
     const result = await client.credentials().issue(name, {
       ri: regk,
-      s: schemaSaid,
+      s: input.schemaSaid,
       a: {
         i: input.userAid,
-        email: input.email,
-        firstName: input.firstName,
-        lastName: input.lastName,
+        ...input.attributes,
       },
     });
     await waitOperation(client, result.op);
@@ -290,7 +285,7 @@ class SignifyService {
     const credential = await client.credentials().get(result.acdc.ked.d);
     const datetime = new Date().toISOString().replace("Z", "000+00:00");
 
-    const [grant, gsigs, gend] = await client.ipex().grant({
+    const [grant, gsigs, gend] = await this.grantWithSchemaOobi({
       senderName: name,
       recipient: input.userAid,
       acdc: new Serder(credential.sad),
@@ -305,6 +300,57 @@ class SignifyService {
       .submitGrant(name, grant, gsigs, gend, [input.userAid]);
 
     return { said: credential.sad.d };
+  }
+
+  /**
+   * Build an IPEX grant exactly like signify's `ipex().grant()`, but inject
+   * `a.oobiUrl` so the holder's wallet knows where to fetch the credential's
+   * schema (the wallet reads `exn.a.oobiUrl` first, before falling back to the
+   * issuer's indexer loc-scheme — which our stack can't set).
+   */
+  private async grantWithSchemaOobi(opts: {
+    senderName: string;
+    recipient: string;
+    acdc: Serder;
+    anc: Serder;
+    iss: Serder;
+    ancAttachment?: string;
+    datetime: string;
+  }): Promise<[Serder, string[], string]> {
+    const client: any = this.client;
+    const hab = await client.identifiers().get(opts.senderName);
+
+    let atc = opts.ancAttachment;
+    if (atc === undefined) {
+      const keeper = client.manager.get(hab);
+      const sigs: string[] = await keeper.sign(b(opts.anc.raw));
+      const sigers = sigs.map((sig) => new Siger({ qb64: sig }));
+      const ims = d(messagize(opts.anc, sigers));
+      atc = ims.substring(opts.anc.size);
+    }
+    const acdcAtc = d(serializeACDCAttachment(opts.iss));
+    const issAtc = d(serializeIssExnAttachment(opts.anc));
+
+    const embeds = {
+      acdc: [opts.acdc, acdcAtc],
+      iss: [opts.iss, issAtc],
+      anc: [opts.anc, atc],
+    };
+
+    // `oobiUrl` is the schema host base; the wallet appends `/<said>`.
+    const data = { m: "", oobiUrl: `${schemaPublicBase()}/oobi` };
+
+    return client
+      .exchanges()
+      .createExchangeMessage(
+        hab,
+        "/ipex/grant",
+        data,
+        embeds,
+        opts.recipient,
+        opts.datetime,
+        undefined
+      );
   }
 }
 

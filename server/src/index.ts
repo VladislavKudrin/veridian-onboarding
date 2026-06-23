@@ -15,6 +15,17 @@ async function main() {
   app.use(cors({ origin: config.clientUrl, credentials: true }));
   app.use(express.json());
 
+  // Public sandbox info — what the user needs to point their wallet here.
+  // Prefers public ngrok URLs (so a phone can reach KERIA) when available.
+  app.get("/info", async (_req, res) => {
+    const tunnels = await discoverTunnels();
+    const wallet = tunnels ?? {
+      bootUrl: config.walletKeria.bootUrl,
+      connectUrl: config.walletKeria.connectUrl,
+    };
+    res.json({ name: "Veridian Sandbox", sandbox: true, public: !!tunnels, wallet });
+  });
+
   app.get("/health", (_req, res) => {
     res.json({
       status: "ok",
@@ -26,11 +37,14 @@ async function main() {
   });
 
   // Public, UNauthenticated: KERIA fetches schema OOBIs from here by SAID.
+  // NOTE: keripy rejects the response if the content-type carries a charset
+  // (e.g. "; charset=utf-8"). express's res.send(string) adds one — so set the
+  // header exactly and end with res.end (which does not).
   app.get("/oobi/:said", (req, res) => {
     const row = getSchemaBySaid(req.params.said);
     if (!row) return res.status(404).json({ error: "Unknown schema" });
     res.setHeader("Content-Type", "application/schema+json");
-    res.send(row.definition);
+    res.end(row.definition);
   });
 
   app.use("/auth", authRouter);
@@ -53,6 +67,31 @@ async function main() {
       );
     }
   });
+}
+
+/** Read the public boot/connect URLs from the ngrok agent API, if running. */
+async function discoverTunnels(): Promise<
+  { bootUrl: string; connectUrl: string } | null
+> {
+  try {
+    const res = await fetch(`${config.ngrokApiUrl}/api/tunnels`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    const urlFor = (port: string): string | undefined =>
+      data.tunnels?.find(
+        (t: any) =>
+          String(t.config?.addr ?? "").endsWith(`:${port}`) &&
+          String(t.public_url ?? "").startsWith("https")
+      )?.public_url;
+
+    const bootUrl = urlFor("3903");
+    const connectUrl = urlFor("3901");
+    return bootUrl && connectUrl ? { bootUrl, connectUrl } : null;
+  } catch {
+    return null; // ngrok not running / unreachable
+  }
 }
 
 main().catch((err) => {

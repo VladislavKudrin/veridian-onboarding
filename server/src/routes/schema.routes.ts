@@ -7,9 +7,10 @@ import {
   upsertSchema,
 } from "../db";
 import { AuthedRequest, requireAuth } from "../middleware/auth";
+import { attributesOf } from "../schema/attributes";
 import { CATALOG_SCHEMAS } from "../schema/catalog.data";
+import { schemaPublicBase } from "../schema/publicUrl";
 import { buildSchema, deriveCredentialType, SchemaField } from "../schema/saidify";
-import { config } from "../config";
 import { signifyService } from "../signify/signify.service";
 
 export const schemaRouter = Router();
@@ -18,25 +19,16 @@ schemaRouter.use(requireAuth);
 const RESERVED = new Set(["d", "i", "dt", "v", "u", "ri", "s", "a"]);
 const FIELD_RE = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 
-/** Pull the custom attribute field names out of a stored ACDC schema. */
-function fieldsOf(definition: string): string[] {
-  try {
-    const def = JSON.parse(definition);
-    const props = def?.properties?.a?.oneOf?.[1]?.properties ?? {};
-    return Object.keys(props).filter((k) => k !== "d" && k !== "i" && k !== "dt");
-  } catch {
-    return [];
-  }
-}
-
 function present(row: SchemaRow) {
+  const attributes = attributesOf(row.definition);
   return {
     said: row.said,
     title: row.title,
     credentialType: row.credential_type,
     source: row.source,
-    fields: fieldsOf(row.definition),
-    oobi: `${config.schema.host}/oobi/${row.said}`,
+    fields: attributes.map((a) => a.name),
+    attributes,
+    oobi: `${schemaPublicBase()}/oobi/${row.said}`,
     createdAt: row.created_at,
   };
 }

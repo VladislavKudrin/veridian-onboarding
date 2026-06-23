@@ -53,7 +53,11 @@ export function App() {
       keriaReady={keriaReady}
     >
       {tab === "holder" ? (
-        <Dashboard keriaReady={keriaReady} />
+        <Dashboard
+          user={user}
+          keriaReady={keriaReady}
+          onGoToIssuer={() => setTab("issuer")}
+        />
       ) : (
         <Issuer keriaReady={keriaReady} />
       )}

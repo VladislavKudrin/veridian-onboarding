@@ -159,9 +159,17 @@ export function insertConnection(
     .get(info.lastInsertRowid) as ConnectionRow;
 }
 
-/** Forget all connections for a user (used by the disconnect / reset flow). */
+/**
+ * Forget a user's connections (disconnect / start over). Credentials reference
+ * connections via a foreign key, so clear them first (the credential lives on
+ * in the wallet regardless — this only resets our records).
+ */
 export function deleteConnectionsForUser(userId: number): void {
-  db.prepare(`DELETE FROM connections WHERE user_id = ?`).run(userId);
+  const reset = db.transaction((uid: number) => {
+    db.prepare(`DELETE FROM credentials WHERE user_id = ?`).run(uid);
+    db.prepare(`DELETE FROM connections WHERE user_id = ?`).run(uid);
+  });
+  reset(userId);
 }
 
 export function getLatestCredential(
@@ -172,6 +180,12 @@ export function getLatestCredential(
       `SELECT * FROM credentials WHERE user_id = ? ORDER BY id DESC LIMIT 1`
     )
     .get(userId) as CredentialRow | undefined;
+}
+
+export function listCredentials(userId: number): CredentialRow[] {
+  return db
+    .prepare(`SELECT * FROM credentials WHERE user_id = ? ORDER BY id DESC`)
+    .all(userId) as CredentialRow[];
 }
 
 export function insertCredential(

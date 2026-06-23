@@ -45,13 +45,14 @@ export interface Connection {
   created_at: string;
 }
 
-export interface Credential {
+export interface IssuedCredential {
   id: number;
-  cred_said: string;
-  schema_said: string;
-  attributes: string;
+  credSaid: string;
+  schemaSaid: string;
+  schemaTitle: string;
+  attributes: Record<string, string | number | boolean>;
   status: string;
-  issued_at: string;
+  issuedAt: string;
 }
 
 export interface SchemaSummary {
@@ -60,6 +61,7 @@ export interface SchemaSummary {
   credentialType: string;
   source: string;
   fields: string[];
+  attributes: SchemaField[];
   oobi: string;
   createdAt: string;
 }
@@ -89,6 +91,14 @@ export const api = {
   health: () =>
     request<{ keria: { enabled: boolean; available: boolean } }>("/health"),
 
+  info: () =>
+    request<{
+      name: string;
+      sandbox: boolean;
+      public: boolean;
+      wallet: { bootUrl: string; connectUrl: string };
+    }>("/info"),
+
   getPlatformOobi: () =>
     request<{ oobi: string; aid: string }>("/connection/oobi"),
 
@@ -109,15 +119,13 @@ export const api = {
   disconnect: () =>
     request<{ success: boolean }>("/connection", { method: "DELETE" }),
 
-  credentialStatus: () =>
-    request<{ active: boolean; credential: Credential | null }>(
-      "/credentials/status"
-    ),
+  listCredentials: () =>
+    request<{ credentials: IssuedCredential[] }>("/credentials"),
 
-  issueCredential: () =>
-    request<{ success: boolean; credential: Credential }>(
+  issueCredential: (body: { said: string; attributes: Record<string, unknown> }) =>
+    request<{ success: boolean; credential: IssuedCredential }>(
       "/credentials/issue",
-      { method: "POST" }
+      { method: "POST", body: JSON.stringify(body) }
     ),
 
   // ── Issuer: schemas ──────────────────────────────────

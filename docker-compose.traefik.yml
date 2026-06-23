@@ -1,0 +1,111 @@
+# ── Production-style deployment (overlay) ──────────────────────────────────
+# A Traefik reverse proxy fronts the whole stack under ONE domain with HTTPS
+# (Let's Encrypt), mirroring Veridian's own self-host pattern. Use this INSTEAD
+# of the ngrok tunnel — it gives the wallet proper, stable subdomains and a real
+# public schema host.
+#
+#   # in .env:  PUBLIC_DOMAIN=example.com, ACME_ADMIN_EMAIL=you@example.com,
+#   #           COMPOSE_PROFILES=traefik   (so ngrok does NOT also run)
+#   docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d --build
+#
+# Requires (on a host with a public IP, ports 80+443 open):
+#   DNS A-records -> this host for:  keria, keria-boot, keria-ext,
+#   cred-issuance, app   (all under PUBLIC_DOMAIN)
+#
+# Subdomain routing (matches the Veridian production deployment):
+#   keria.${PUBLIC_DOMAIN}         -> keria :3901  (connect / admin)
+#   keria-boot.${PUBLIC_DOMAIN}    -> keria :3903  (boot)
+#   keria-ext.${PUBLIC_DOMAIN}     -> keria :3902  (curls / OOBI)
+#   cred-issuance.${PUBLIC_DOMAIN} -> server :4000 (hosts schema OOBIs at /oobi/:said)
+#   app.${PUBLIC_DOMAIN}           -> web :80      (the guided UI)
+
+services:
+  traefik:
+    profiles: ["traefik"]
+    image: traefik:v3.3.5
+    container_name: veridian-poc-traefik
+    restart: unless-stopped
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.le.acme.tlschallenge=true"
+      - "--certificatesresolvers.le.acme.email=${ACME_ADMIN_EMAIL:-acme@example.com}"
+      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  keria:
+    environment:
+      # KERIA advertises its OOBI/curls under the keria-ext subdomain.
+      - KERIA_PUBLIC_URL=https://keria-ext.${PUBLIC_DOMAIN:-example.com}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.poc-https.redirectscheme.scheme=https"
+      # connect / admin -> 3901
+      - "traefik.http.routers.keria.rule=Host(`keria.${PUBLIC_DOMAIN:-example.com}`)"
+      - "traefik.http.routers.keria.entrypoints=websecure"
+      - "traefik.http.routers.keria.tls.certresolver=le"
+      - "traefik.http.routers.keria.service=keria"
+      - "traefik.http.services.keria.loadbalancer.server.port=3901"
+      - "traefik.http.routers.keria-http.rule=Host(`keria.${PUBLIC_DOMAIN:-example.com}`)"
+      - "traefik.http.routers.keria-http.entrypoints=web"
+      - "traefik.http.routers.keria-http.middlewares=poc-https"
+      # ext / curls / OOBI -> 3902
+      - "traefik.http.routers.keria-ext.rule=Host(`keria-ext.${PUBLIC_DOMAIN:-example.com}`)"
+      - "traefik.http.routers.keria-ext.entrypoints=websecure"
+      - "traefik.http.routers.keria-ext.tls.certresolver=le"
+      - "traefik.http.routers.keria-ext.service=keria-ext"
+      - "traefik.http.services.keria-ext.loadbalancer.server.port=3902"
+      - "traefik.http.routers.keria-ext-http.rule=Host(`keria-ext.${PUBLIC_DOMAIN:-example.com}`)"
+      - "traefik.http.routers.keria-ext-http.entrypoints=web"
+      - "traefik.http.routers.keria-ext-http.middlewares=poc-https"
+      # boot -> 3903
+      - "traefik.http.routers.keria-boot.rule=Host(`keria-boot.${PUBLIC_DOMAIN:-example.com}`)"
+      - "traefik.http.routers.keria-boot.entrypoints=websecure"
+      - "traefik.http.routers.keria-boot.tls.certresolver=le"
+      - "traefik.http.routers.keria-boot.service=keria-boot"
+      - "traefik.http.services.keria-boot.loadbalancer.server.port=3903"
+      - "traefik.http.routers.keria-boot-http.rule=Host(`keria-boot.${PUBLIC_DOMAIN:-example.com}`)"
+      - "traefik.http.routers.keria-boot-http.entrypoints=web"
+      - "traefik.http.routers.keria-boot-http.middlewares=poc-https"
+
+  server:
+    environment:
+      # The wallet-facing URLs the prerequisites card shows + the schema host.
+      - SCHEMA_PUBLIC_URL=https://cred-issuance.${PUBLIC_DOMAIN:-example.com}
+      - WALLET_KERIA_BOOT_URL=https://keria-boot.${PUBLIC_DOMAIN:-example.com}
+      - WALLET_KERIA_CONNECT_URL=https://keria.${PUBLIC_DOMAIN:-example.com}
+      # No ngrok in this mode — fall back to the WALLET_KERIA_* values above.
+      - NGROK_API_URL=
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.poc-server.loadbalancer.server.port=4000"
+      # cred-issuance -> the schema host (server serves /oobi/:said)
+      - "traefik.http.routers.cred.rule=Host(`cred-issuance.${PUBLIC_DOMAIN:-example.com}`)"
+      - "traefik.http.routers.cred.entrypoints=websecure"
+      - "traefik.http.routers.cred.tls.certresolver=le"
+      - "traefik.http.routers.cred.service=poc-server"
+      - "traefik.http.routers.cred-http.rule=Host(`cred-issuance.${PUBLIC_DOMAIN:-example.com}`)"
+      - "traefik.http.routers.cred-http.entrypoints=web"
+      - "traefik.http.routers.cred-http.middlewares=poc-https"
+
+  web:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.poc-web.loadbalancer.server.port=80"
+      - "traefik.http.routers.app.rule=Host(`app.${PUBLIC_DOMAIN:-example.com}`)"
+      - "traefik.http.routers.app.entrypoints=websecure"
+      - "traefik.http.routers.app.tls.certresolver=le"
+      - "traefik.http.routers.app.service=poc-web"
+      - "traefik.http.routers.app-http.rule=Host(`app.${PUBLIC_DOMAIN:-example.com}`)"
+      - "traefik.http.routers.app-http.entrypoints=web"
+      - "traefik.http.routers.app-http.middlewares=poc-https"
+
+volumes:
+  letsencrypt:

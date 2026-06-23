@@ -189,6 +189,14 @@ select:focus {
   color: #9af0c8;
 }
 
+.alert.warn-soft {
+  background: rgba(255, 180, 84, 0.1);
+  border: 1px solid rgba(255, 180, 84, 0.35);
+  color: #ffd9a8;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
 /* ── Dashboard ─────────────────────────── */
 .page {
   min-height: 100vh;
@@ -343,6 +351,138 @@ select:focus {
   background: rgba(62, 207, 142, 0.1);
 }
 
+/* ── Prerequisites ─────────────────────── */
+.prereq-lead {
+  font-size: 14px;
+  margin: 14px 0;
+}
+
+.setup-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 11px 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.setup-toggle.open {
+  border-color: rgba(108, 140, 255, 0.4);
+}
+
+.setup-chevron {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.setup-body {
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  padding: 16px 14px;
+  margin-top: -1px;
+}
+
+.setup-note {
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin: 14px 0 0;
+}
+
+.prereq-list {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 14px;
+}
+
+.prereq-list a {
+  color: var(--primary);
+}
+
+.url-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.url-reach {
+  display: block;
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.url-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px 8px 12px;
+}
+
+.url-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  flex: 0 0 92px;
+}
+
+.url-value {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 13px;
+  word-break: break-all;
+  color: var(--text);
+}
+
+/* ── Issuance step ─────────────────────── */
+.issue {
+  margin-top: 18px;
+}
+
+.empty-credentials {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.checkbox-row {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  color: var(--text) !important;
+}
+
+.checkbox-row input {
+  width: auto;
+}
+
+.issued-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
 .dash {
   max-width: 720px;
   margin: 40px auto;
@@ -354,8 +494,7 @@ select:focus {
 
 .dash-head {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
 }
 
 .dash-head h1 {
@@ -505,12 +644,13 @@ select:focus {
 
 /* ── Dashboard head ────────────────────── */
 .dash-head h1 {
-  margin: 0 0 6px;
+  margin: 0 0 10px;
 }
 
 .dash-head p {
   margin: 0;
   font-size: 14px;
+  line-height: 1.55;
   max-width: 56ch;
 }
 
