@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import { startCredLoginPoller } from "./auth/credLoginPoller";
 import { config } from "./config";
 import { getSchemaBySaid, listSchemas, seedAdmin } from "./db";
 import { authRouter } from "./routes/auth.routes";
@@ -68,6 +69,8 @@ async function main() {
         console.warn(`[schema] re-resolve ${s.said} failed: ${e?.message || e}`)
       );
     }
+    // Watch for wallet presentations to complete "log in with credential".
+    startCredLoginPoller();
   });
 }
 

@@ -4,9 +4,10 @@ import {
   getSchemaBySaid,
   listSchemas,
   SchemaRow,
+  setSchemaLoginEnabled,
   upsertSchema,
 } from "../db";
-import { AuthedRequest, requireAuth } from "../middleware/auth";
+import { AuthedRequest, requireAuth, requireIssuer } from "../middleware/auth";
 import { attributesOf } from "../schema/attributes";
 import { CATALOG_SCHEMAS } from "../schema/catalog.data";
 import { schemaPublicBase } from "../schema/publicUrl";
@@ -28,6 +29,7 @@ function present(row: SchemaRow) {
     source: row.source,
     fields: attributes.map((a) => a.name),
     attributes,
+    loginEnabled: !!row.login_enabled,
     oobi: `${schemaPublicBase()}/oobi/${row.said}`,
     createdAt: row.created_at,
   };
@@ -142,4 +144,12 @@ schemaRouter.post("/:said/resolve", async (req: AuthedRequest, res) => {
 schemaRouter.delete("/:said", (req: AuthedRequest, res) => {
   deleteSchema(req.params.said);
   res.json({ success: true });
+});
+
+/** Mark/unmark a schema as accepted for "log in with credential". */
+schemaRouter.post("/:said/login", requireIssuer, (req: AuthedRequest, res) => {
+  const row = getSchemaBySaid(req.params.said);
+  if (!row) return res.status(404).json({ error: "Unknown schema." });
+  setSchemaLoginEnabled(row.said, !!req.body?.enabled);
+  res.json({ schema: present(getSchemaBySaid(row.said)!) });
 });

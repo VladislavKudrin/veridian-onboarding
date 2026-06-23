@@ -427,6 +427,15 @@ function SchemaCard({
       setBusy(false);
     }
   }
+  async function toggleLogin() {
+    setBusy(true);
+    try {
+      await api.toggleSchemaLogin(schema.said, !schema.loginEnabled);
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <div className="schema-item">
       <div className="schema-main">
@@ -439,6 +448,24 @@ function SchemaCard({
         </div>
         <code className="schema-said">{schema.said}</code>
       </div>
+      <label
+        className="switch-row"
+        title="Accept this credential type for log-in"
+      >
+        <span className="switch-text">
+          <span className="switch-icon">🔑</span> Login
+        </span>
+        <span className={`switch ${schema.loginEnabled ? "on" : ""}`}>
+          <input
+            type="checkbox"
+            checked={schema.loginEnabled}
+            onChange={toggleLogin}
+            disabled={busy}
+          />
+          <span className="switch-track" />
+          <span className="switch-knob" />
+        </span>
+      </label>
       <button className="icon-btn" onClick={remove} disabled={busy} title="Delete">
         🗑
       </button>

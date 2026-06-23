@@ -302,6 +302,77 @@ class SignifyService {
     return { said: credential.sad.d };
   }
 
+  /**
+   * Send a presentation request (IPEX apply) to a wallet AID for a credential
+   * of the given schema. Returns the apply's SAID, used to correlate the reply.
+   */
+  async sendPresentation(aid: string, schemaSaid: string): Promise<string> {
+    const name = config.keria.agentName;
+    const client: any = this.client;
+    const hab = await client.identifiers().get(name);
+
+    // Hand-build the apply so we can include `oobiUrl` (signify's apply() can't):
+    // without it the wallet can't resolve the request's schema and silently
+    // drops the notification. `a` is the (empty) attribute filter; `oobiUrl`
+    // sits alongside it for the wallet's getInlineSchemaOobiBase().
+    const data = {
+      m: "",
+      s: schemaSaid,
+      a: {},
+      oobiUrl: `${schemaPublicBase()}/oobi`,
+    };
+    const [apply, sigs] = await client
+      .exchanges()
+      .createExchangeMessage(hab, "/ipex/apply", data, {}, aid, undefined, undefined);
+
+    // submitApply returns a long-running delivery op — wait for it, otherwise
+    // the request never actually reaches the wallet.
+    const op = await client.ipex().submitApply(name, apply, sigs, [aid]);
+    await waitOperation(this.client, op);
+    return (
+      (apply as any).sad?.d ??
+      (apply as any).ked?.d ??
+      (apply as any).exn?.d ??
+      ""
+    );
+  }
+
+  /** Agree to a holder's IPEX offer (completes the presentation handshake). */
+  async agreeToOffer(recipient: string, offerSaid: string): Promise<void> {
+    const name = config.keria.agentName;
+    const [agree, sigs] = await this.client
+      .ipex()
+      .agree({ senderName: name, recipient, offerSaid });
+    const op = await this.client
+      .ipex()
+      .submitAgree(name, agree, sigs, [recipient]);
+    await waitOperation(this.client, op);
+  }
+
+  /** Live notifications for the agent (used by the login poller). */
+  async listNotifications(): Promise<any[]> {
+    const res = await this.client.notifications().list();
+    return res?.notes ?? [];
+  }
+
+  async getExchange(said: string): Promise<any> {
+    return this.client.exchanges().get(said);
+  }
+
+  async deleteNotification(id: string): Promise<void> {
+    await this.client.notifications().delete(id);
+  }
+
+  /** True if KERIA reports this credential as revoked (TEL status `1`). */
+  async isCredentialRevoked(credId: string): Promise<boolean> {
+    try {
+      const cred = await this.client.credentials().get(credId);
+      return cred?.status?.s === "1";
+    } catch {
+      return false;
+    }
+  }
+
   /** Revoke a credential — writes a `rev` event to the registry (TEL). */
   async revokeCredential(credSaid: string): Promise<void> {
     const result = await this.client

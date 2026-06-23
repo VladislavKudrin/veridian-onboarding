@@ -113,6 +113,7 @@ function addColumnIfMissing(table: string, column: string, def: string): void {
 }
 addColumnIfMissing("users", "role", "TEXT NOT NULL DEFAULT 'holder'");
 addColumnIfMissing("users", "password_hash", "TEXT NOT NULL DEFAULT ''");
+addColumnIfMissing("schemas", "login_enabled", "INTEGER NOT NULL DEFAULT 0");
 
 export interface SchemaRow {
   said: string;
@@ -120,7 +121,25 @@ export interface SchemaRow {
   credential_type: string;
   definition: string;
   source: string;
+  login_enabled: number;
   created_at: string;
+}
+
+/** Toggle whether a schema is accepted for "log in with credential". */
+export function setSchemaLoginEnabled(said: string, enabled: boolean): void {
+  db.prepare(`UPDATE schemas SET login_enabled = ? WHERE said = ?`).run(
+    enabled ? 1 : 0,
+    said
+  );
+}
+
+/** SAIDs of schemas the issuer accepts as login credentials. */
+export function loginEnabledSaids(): string[] {
+  return (
+    db
+      .prepare(`SELECT said FROM schemas WHERE login_enabled = 1`)
+      .all() as { said: string }[]
+  ).map((r) => r.said);
 }
 
 export function listSchemas(): SchemaRow[] {
@@ -136,7 +155,7 @@ export function getSchemaBySaid(said: string): SchemaRow | undefined {
 }
 
 export function upsertSchema(
-  row: Omit<SchemaRow, "created_at">
+  row: Omit<SchemaRow, "created_at" | "login_enabled">
 ): SchemaRow {
   db.prepare(
     `INSERT INTO schemas (said, title, credential_type, definition, source)

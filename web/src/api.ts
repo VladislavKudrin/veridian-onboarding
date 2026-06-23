@@ -81,6 +81,7 @@ export interface SchemaSummary {
   source: string;
   fields: string[];
   attributes: SchemaField[];
+  loginEnabled: boolean;
   oobi: string;
   createdAt: string;
 }
@@ -115,6 +116,20 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+
+  // ── Log in with a credential (presentation) ──────────
+  credLoginStart: (username: string) =>
+    request<{ sessionId: string }>("/auth/cred-login/start", {
+      method: "POST",
+      body: JSON.stringify({ username }),
+    }),
+
+  credLoginStatus: (id: string) =>
+    request<{
+      status: "pending" | "success" | "failed" | "expired";
+      token?: string;
+      reason?: string;
+    }>(`/auth/cred-login/${id}`),
 
   me: () => request<User>("/auth/me"),
 
@@ -200,4 +215,10 @@ export const api = {
 
   deleteSchema: (said: string) =>
     request<{ success: boolean }>(`/schemas/${said}`, { method: "DELETE" }),
+
+  toggleSchemaLogin: (said: string, enabled: boolean) =>
+    request<{ schema: SchemaSummary }>(`/schemas/${said}/login`, {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    }),
 };
