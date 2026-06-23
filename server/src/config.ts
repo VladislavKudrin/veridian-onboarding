@@ -21,6 +21,12 @@ export const config = {
     connectUrl: process.env.KERIA_CONNECT_URL || "http://localhost:3901",
     bran: process.env.SIGNIFY_BRAN || undefined,
     agentName: process.env.AGENT_NAME || "VeridianPoc",
+    // Fixed seed for the ISSUER IDENTIFIER (not the client). Passing this to
+    // identifiers().create makes the issuer AID DETERMINISTIC, so it survives a
+    // `down -v` / agent recreation instead of rotating (which silently breaks
+    // every wallet connection). Without it signify uses a random salt each time.
+    identifierBran:
+      process.env.SIGNIFY_IDENTIFIER_BRAN || "veridianPocIssuerSeed",
   },
 
   // KERIA boot/connect URLs to show the user for THEIR wallet. Must be reachable

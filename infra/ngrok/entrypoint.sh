@@ -1,9 +1,18 @@
 #!/bin/sh
 # Generate an ngrok config exposing the three KERIA ports a wallet needs:
-#   3902 protocol/OOBI  (stable reserved domain if NGROK_DOMAIN is set)
+#   3902 protocol/OOBI  (STABLE reserved domain — the one the issuer advertises)
 #   3901 connect/admin  (random url — wallet boot/connect; ephemeral by design)
 #   3903 boot
 set -e
+
+# A reserved (free) domain is required so the OOBI host is stable across
+# restarts. Reserve one at https://dashboard.ngrok.com/domains.
+if [ -z "$NGROK_DOMAIN" ]; then
+  echo "[ngrok-init] ERROR: NGROK_DOMAIN is required." >&2
+  echo "[ngrok-init]   Reserve a free domain at https://dashboard.ngrok.com/domains" >&2
+  echo "[ngrok-init]   then set NGROK_DOMAIN=your-name.ngrok-free.app in .env." >&2
+  exit 1
+fi
 
 CONF=/tmp/ngrok.yml
 {
@@ -13,7 +22,7 @@ CONF=/tmp/ngrok.yml
   echo '  protocol:'
   echo '    proto: http'
   echo '    addr: keria:3902'
-  [ -n "$NGROK_DOMAIN" ] && echo "    domain: $NGROK_DOMAIN"
+  echo "    domain: $NGROK_DOMAIN"
   echo '  connect:'
   echo '    proto: http'
   echo '    addr: keria:3901'

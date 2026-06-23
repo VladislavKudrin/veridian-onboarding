@@ -30,6 +30,7 @@ services:
       - REMOTE_SIGNING=true
       # Public URL KERIA advertises in OOBIs: a domain, "ngrok", or "local".
       - KERIA_PUBLIC_URL=${KERIA_PUBLIC_URL:-local}
+      - KERIA_LOGLEVEL=${KERIA_LOGLEVEL:-INFO}
     volumes:
       - keria-data:/usr/local/var/keri
       # Template config in; the init script writes the resolved one to KERIA's

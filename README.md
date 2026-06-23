@@ -11,9 +11,15 @@ code behind it — so you can lift the chunks you need into your own app.
 After cloning, two steps:
 
 ```bash
-cp .env.example .env     # add a free ngrok authtoken — see "Wallet reach" below
+cp .env.example .env     # add a free ngrok token + domain — see "Wallet reach"
 docker compose up --build
 ```
+
+> Both ngrok values are free, one-time signups and **both are required**: an
+> [authtoken](https://dashboard.ngrok.com/get-started/your-authtoken) and a
+> reserved [domain](https://dashboard.ngrok.com/domains). The domain keeps the
+> issuer's OOBI host **stable**, so a wallet connection survives restarts (a
+> random tunnel changes every restart and silently breaks it).
 
 That's the whole onboarding — it builds and runs everything. No other
 repositories or local Node needed; the agent/witness config is vendored under
@@ -86,23 +92,21 @@ mobile app) can't reach it and the connection stays **pending forever**. There
 is no "accept" step on the platform — the wallet confirms automatically *once it
 finishes resolving our OOBI*. So the OOBI must point at a reachable host.
 
-Configured in `.env` via `KERIA_PUBLIC_URL` (+ `NGROK_AUTHTOKEN`):
+Configured in `.env` via `KERIA_PUBLIC_URL`:
 
-- **`ngrok` (default, zero-config)** — opens an ngrok tunnel automatically and
-  advertises its public URL in OOBIs. No domain of your own needed; add a free
-  token from [ngrok](https://dashboard.ngrok.com/get-started/your-authtoken).
-  ⚠️ A **free random** URL changes on every restart, so a saved wallet
-  connection breaks each time — fine for a quick test, not for ongoing use.
-- **`ngrok` + reserved domain (recommended)** — reserve a static domain at
-  <https://dashboard.ngrok.com/domains>, then set **both** (mind the
-  `https://`):
+- **`ngrok` (default)** — opens an ngrok tunnel and advertises a **stable**
+  public URL in OOBIs. Requires **both** free ngrok values (the stack fails
+  fast with instructions if either is missing):
 
   ```
-  KERIA_PUBLIC_URL=https://your-name.ngrok-free.dev
-  NGROK_DOMAIN=your-name.ngrok-free.dev
+  NGROK_AUTHTOKEN=...                    # dashboard.ngrok.com/get-started/your-authtoken
+  NGROK_DOMAIN=your-name.ngrok-free.app  # reserve free at dashboard.ngrok.com/domains
   ```
 
-  The URL never changes, so the wallet connection survives restarts.
+  The reserved domain fronts the OOBI port (3902), so the host never changes and
+  the wallet connection survives restarts. (Boot/connect for setting up a *new*
+  wallet on our KERIA stay on random tunnels — `/info` always reports the
+  current ones — because only the OOBI host needs to be stable.)
 - **Your own domain (no tunnel)** — set
   `KERIA_PUBLIC_URL=https://keria.yourdomain.org`, point it at this host's port
   `3902`, and disable the tunnel with `COMPOSE_PROFILES=` (empty).
@@ -241,6 +245,41 @@ holder approves and presents a credential, and a background poller verifies it �
 before minting the session. See `server/src/signify/signify.service.ts`
 (`sendPresentation`), `server/src/auth/credLoginPoller.ts`, and
 `server/src/auth/loginSessions.ts`.
+
+---
+
+## Troubleshooting
+
+**The wallet connection stays "pending" forever.**
+The OOBI the wallet scanned isn't reachable. Confirm `NGROK_DOMAIN` is set and
+the issuer OOBI advertises it: `curl …/connection/oobi` (as admin) — the host
+must be your ngrok domain (or your own domain), not an internal/`localhost`
+host, and fetching that OOBI URL must return `200`.
+
+**A credential (or login request) never shows up in the wallet.**
+The wallet silently drops an IPEX message it can't fully process. Two causes:
+- **It can't reach the schema.** The wallet's KERIA fetches the schema from the
+  `oobiUrl` embedded in the grant/apply. Make sure the `cloudflared` service is
+  up and the schema URL returns `200` with content-type `application/schema+json`
+  (no charset). See *Reaching the schema from any wallet*.
+- **Delivery wasn't awaited.** `submitGrant` / `submitApply` return a
+  long-running delivery operation that must be awaited (`waitOperation`) —
+  otherwise the message never leaves the mailbox. (Already handled in the code;
+  noted here because it's an easy thing to drop when lifting the chunk.)
+
+**Did the OOBI change after I restarted?**
+A `docker compose up -d --build server` (or `restart`) does **not** change the
+OOBI — the agent (issuer AID, baked host, contacts) lives in `keria-data` and
+is untouched; the server reconnects to it via the pinned `SIGNIFY_BRAN`. The
+OOBI only changes if you (a) run `down -v` (new agent) or (b) use a *random*
+ngrok tunnel instead of a reserved domain. With `NGROK_DOMAIN` set, neither
+happens — so you don't need to reconnect after routine restarts.
+
+**"FOREIGN KEY constraint failed" on disconnect / re-connect.**
+Disconnecting clears the connection and any credentials issued under it (they
+reference the connection). Removing the connection **in the wallet** also means
+the wallet no longer recognizes the issuer as a contact — re-add it (re-scan the
+issuer OOBI) before expecting new grants or presentation requests to appear.
 
 ---
 

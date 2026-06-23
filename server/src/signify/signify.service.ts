@@ -120,9 +120,15 @@ class SignifyService {
     try {
       await this.client.identifiers().get(config.keria.agentName);
     } catch {
+      // Pass a FIXED bran so the issuer AID is deterministic — it then survives
+      // a `down -v` / fresh agent instead of rotating (a rotated issuer AID
+      // silently breaks every wallet connection, since the wallet drops grants
+      // from a sender it no longer recognizes).
       const result: EventResult = await this.client
         .identifiers()
-        .create(config.keria.agentName);
+        .create(config.keria.agentName, {
+          bran: config.keria.identifierBran,
+        });
       await waitOperation(this.client, await result.op());
     }
   }
@@ -294,6 +300,11 @@ class SignifyService {
       datetime,
     });
 
+    // Fire-and-forget: KERIA's background sender forwards the grant to the
+    // recipient's mailbox off the back of the `exchange.{said}` operation it
+    // creates here. Do NOT waitOperation on it — that deletes the operation and
+    // cancels the forward before it's delivered (the op reports done:true once
+    // the exn is merely saved, not once it's delivered).
     await client
       .ipex()
       .submitGrant(name, grant, gsigs, gend, [input.userAid]);

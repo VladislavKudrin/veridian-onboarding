@@ -18,17 +18,17 @@ resolve_url() {
       printf '%s' "$KERIA_PUBLIC_URL"
       ;;
     ngrok)
-      echo "[keria-init] waiting for ngrok tunnel (http://ngrok:4040)..." >&2
-      i=0
-      while [ "$i" -lt 60 ]; do
-        url=$(curl -s http://ngrok:4040/api/tunnels 2>/dev/null \
-          | python3 -c "import sys,json; d=json.load(sys.stdin); t=[x['public_url'] for x in d.get('tunnels',[]) if x.get('public_url','').startswith('https')]; print(t[0] if t else '')" 2>/dev/null)
-        if [ -n "$url" ]; then printf '%s' "$url"; return 0; fi
-        sleep 2
-        i=$((i + 1))
-      done
-      echo "[keria-init] ERROR: ngrok URL not available (is the tunnel profile up + NGROK_AUTHTOKEN set?)" >&2
-      return 1
+      # A reserved (free) ngrok domain is REQUIRED, so the issuer's OOBI host is
+      # STABLE. KERIA bakes this host into the agent at first boot, and a stable
+      # host is what lets a wallet connection survive restarts. Using it directly
+      # is also deterministic — no tunnel-discovery race.
+      if [ -z "$NGROK_DOMAIN" ]; then
+        echo "[keria-init] ERROR: NGROK_DOMAIN is required for the ngrok path." >&2
+        echo "[keria-init]   Reserve a free domain at https://dashboard.ngrok.com/domains" >&2
+        echo "[keria-init]   then set NGROK_DOMAIN=your-name.ngrok-free.app in .env." >&2
+        return 1
+      fi
+      printf '%s' "https://$NGROK_DOMAIN"
       ;;
     *)
       echo "[keria-init] KERIA_PUBLIC_URL is local/unset — advertising internal host (a wallet will NOT be able to connect)." >&2
@@ -51,4 +51,4 @@ print("[keria-init] wrote", os.environ["DEST"])
 PY
 
 cd /keria
-exec keria start --config-file backer-oobis --config-dir ./scripts --loglevel INFO
+exec keria start --config-file backer-oobis --config-dir ./scripts --loglevel "${KERIA_LOGLEVEL:-INFO}"
